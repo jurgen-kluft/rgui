@@ -5,6 +5,8 @@
     #pragma once
 #endif
 
+#include "cfenc/c_dirty_tiles.h"
+
 namespace ncore
 {
     namespace nmui
@@ -16,18 +18,12 @@ namespace ncore
             u16  m_height;  // height of the framebuffer in pixels
         };
 
-        struct tiles_t
-        {
-            const u8* m_tiles;         // 2D array of tile dirty bits
-            u8        m_tile_w;        // tile width in pixels
-            u8        m_tile_h;        // tile height in pixels
-            u8        m_tile_stride;   // number of bytes per row in the tile array
-            u8        m_tile_count_h;  // number of horizontal tiles
-            u8        m_tile_count_v;  // number of vertical tiles
-        };
-
         void init(display_t* display, u16 display_width, u16 display_height);
-        void render(display_t& display, const tiles_t& tiles);
+        
+        // Simple tile based rendering function that takes the dirty tiles and updates 
+        // only those tiles on the hardware display.
+        void render_tiles(display_t& display, const nfenc::dirty_tiles_t& dirty_tiles);
+
 
     }  // namespace nmui
 }  // namespace ncore

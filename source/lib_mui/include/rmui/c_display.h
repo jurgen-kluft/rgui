@@ -13,12 +13,12 @@ namespace ncore
     {
         struct display_t
         {
-            u16* m_fb;      // RGB565 pixel data for the framebuffer
             u16  m_width;   // width of the framebuffer in pixels
             u16  m_height;  // height of the framebuffer in pixels
+            u16* m_fb;      // RGB565 pixel data for the framebuffer
         };
 
-        void init(display_t* display, u16 display_width, u16 display_height);
+        void init_display(display_t& display, u16 display_width, u16 display_height);
         
         // Simple tile based rendering function that takes the dirty tiles and updates 
         // only those tiles on the hardware display.

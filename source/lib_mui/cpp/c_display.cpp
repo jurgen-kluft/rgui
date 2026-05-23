@@ -7,14 +7,14 @@ namespace ncore
 {
     namespace nmui
     {
-        void init(display_t* display, u16 display_width, u16 display_height)
+        void init_display(display_t& display, u16 display_width, u16 display_height)
         {
-            display->m_width  = display_width;
-            display->m_height = display_height;
+            display.m_width  = display_width;
+            display.m_height = display_height;
 
             // use PSRAM to allocate the framebuffers since they are quite large
             // the tile buffer is small enough to fit in regular RAM
-            display->m_fb = (u16*)nsystem::alloc_psram(display_width * display_height * sizeof(u16));
+            display.m_fb = (u16*)nsystem::alloc_psram_aligned(display_width * display_height * sizeof(u16), 64);
         }
 
         void render_tiles(display_t& display, const nfenc::dirty_tiles_t& dirty_tiles)

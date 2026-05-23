@@ -11,98 +11,100 @@ namespace ncore
     {
         enum MsgType : u16
         {
-            MessageTypeClientInfo  = 0xC001,
-            MessageTypeFrameUpdate = 0xC002,
-            MessageTypeInputEvent  = 0xC003
+            MessageTypeInputEvent = 0xC003
         };
-
-        // - Frame update message: [MessageTypeFrameUpdate(u16), MessageLen(u16), flags(u16)]
-        static inline u8* write_frame_update_msg(u8* buffer, u16 flags)
-        {
-            const u16 MsgLen = 6;  
-            buffer[0] = MessageTypeFrameUpdate;
-            buffer[1] = MessageTypeFrameUpdate >> 8;
-            buffer[2] = MsgLen & 0xFF;
-            buffer[3] = (MsgLen >> 8) & 0xFF;
-            buffer[4] = flags & 0xFF;
-            buffer[5] = (flags >> 8) & 0xFF;
-            return buffer + MsgLen;
-        }
 
         enum InputType : u16
         {
-            InputTypeTouch  = 0x1201,
-            InputTypeSwipe  = 0x1202,
-            InputTypeButton = 0x1203,
-            InputTypeRotary = 0x1204
+            InputTypeSingleTap = 0x1201,
+            InputTypeDoubleTap = 0x1202,
+            InputTypeSwipe     = 0x1203,
+            InputTypeButton    = 0x1204,
+            InputTypeRotary    = 0x1205
         };
-
-        // - Touch event: [MessageTypeInputEvent(u16), MessageLen(u16), InputTypeTouch(u16), x(int16), y(int16)]
-        static inline u8* write_touch_event(u8* buffer, s16 x, s16 y)
+        static inline u8* write_u16(u8* buffer, u16 value)
         {
-            const u16 MsgLen = 10;
-            buffer[0]        = MessageTypeInputEvent;
-            buffer[1]        = MessageTypeInputEvent >> 8;
-            buffer[2]        = MsgLen & 0xFF;
-            buffer[3]        = (MsgLen >> 8) & 0xFF;
-            buffer[4]        = InputTypeTouch;
-            buffer[5]        = InputTypeTouch >> 8;
-            buffer[6]        = (u8)(x & 0xFF);
-            buffer[7]        = (u8)((x >> 8) & 0xFF);
-            buffer[8]        = (u8)(y & 0xFF);
-            buffer[9]        = (u8)((y >> 8) & 0xFF);
-            return buffer + MsgLen;
+            buffer[0] = (u8)(value & 0xFF);
+            buffer[1] = (u8)((value >> 8) & 0xFF);
+            return buffer + 2;
+        }
+        static inline u8* write_u32(u8* buffer, u32 value)
+        {
+            buffer[0] = (u8)(value & 0xFF);
+            buffer[1] = (u8)((value >> 8) & 0xFF);
+            buffer[2] = (u8)((value >> 16) & 0xFF);
+            buffer[3] = (u8)((value >> 24) & 0xFF);
+            return buffer + 4;
         }
 
-        // - Swipe event: [MessageTypeInputEvent(u16), MessageLen(u16), InputTypeSwipe(u16), direction(int8), distance(int16)]
-        static inline u8* write_swipe_event(u8* buffer, s8 direction, s16 distance)
+        // - Tap event: [MessageTypeInputEvent(u16), MessageLen(u16), InputTypeSingleTap(u16), x(int16), y(int16)]
+        static inline u16 write_single_tap_event(u8* buffer, s16 x, s16 y)
         {
             const u16 MsgLen = 10;
-            buffer[0]        = MessageTypeInputEvent;
-            buffer[1]        = MessageTypeInputEvent >> 8;
-            buffer[2]        = MsgLen & 0xFF;
-            buffer[3]        = (MsgLen >> 8) & 0xFF;
-            buffer[4]        = InputTypeSwipe;
-            buffer[5]        = InputTypeSwipe >> 8;
-            buffer[6]        = (u8)direction;
-            buffer[7]        = 0;  // padding for alignment
-            buffer[8]        = (u8)(distance & 0xFF);
-            buffer[9]        = (u8)((distance >> 8) & 0xFF);
-            return buffer + MsgLen;
+            u8*       p      = buffer;
+            p                = write_u16(p, MessageTypeInputEvent);
+            p                = write_u16(p, MsgLen);
+            p                = write_u16(p, InputTypeSingleTap);
+            p                = write_u16(p, (u16)x);
+            p                = write_u16(p, (u16)y);
+            ASSERTS((u16)(p - buffer) == MsgLen, "Unexpected message length for touch event");
+            return MsgLen;
+        }
+
+        // - Double tap event: [MessageTypeInputEvent(u16), MessageLen(u16), InputTypeDoubleTap(u16), x(int16), y(int16)]
+        static inline u16 write_double_tap_event(u8* buffer, s16 x, s16 y)
+        {
+            const u16 MsgLen = 10;
+            u8*       p      = buffer;
+            p                = write_u16(p, MessageTypeInputEvent);
+            p                = write_u16(p, MsgLen);
+            p                = write_u16(p, InputTypeDoubleTap);
+            p                = write_u16(p, (u16)x);
+            p                = write_u16(p, (u16)y);
+            ASSERTS((u16)(p - buffer) == MsgLen, "Unexpected message length for touch event");
+            return MsgLen;
+        }
+
+        // - Swipe event: [MessageTypeInputEvent(u16), MessageLen(u16), InputTypeSwipe(u16), fingers(int16), direction(int16), distance(int16)]
+        static inline u16 write_swipe_event(u8* buffer, s8 fingers, s8 direction, s16 distance)
+        {
+            const u16 MsgLen = 12;
+            u8*       p      = buffer;
+            p                = write_u16(p, MessageTypeInputEvent);
+            p                = write_u16(p, MsgLen);
+            p                = write_u16(p, InputTypeSwipe);
+            p                = write_u16(p, (u16)fingers);
+            p                = write_u16(p, (u16)direction);
+            p                = write_u16(p, (u16)distance);
+            ASSERTS((u16)(p - buffer) == MsgLen, "Unexpected message length for swipe event");
+            return MsgLen;
         }
 
         // - Button event: [MessageTypeInputEvent(u16), MessageLen(u16), InputTypeButton(u16), buttonId(int16), state(int16)]
-        static inline u8* write_button_event(u8* buffer, s16 buttonId, s16 state)
+        static inline u16 write_button_event(u8* buffer, s16 buttonId, s16 state)
         {
             const u16 MsgLen = 10;
-            buffer[0]        = MessageTypeInputEvent;
-            buffer[1]        = MessageTypeInputEvent >> 8;
-            buffer[2]        = MsgLen & 0xFF;
-            buffer[3]        = (MsgLen >> 8) & 0xFF;
-            buffer[4]        = InputTypeButton;
-            buffer[5]        = InputTypeButton >> 8;
-            buffer[6]        = (u8)(buttonId & 0xFF);
-            buffer[7]        = (u8)((buttonId >> 8) & 0xFF);
-            buffer[8]        = (u8)(state & 0xFF);
-            buffer[9]        = (u8)((state >> 8) & 0xFF);
-            return buffer + MsgLen;
+            u8*       p      = buffer;
+            p                = write_u16(p, MessageTypeInputEvent);
+            p                = write_u16(p, MsgLen);
+            p                = write_u16(p, InputTypeButton);
+            p                = write_u16(p, (u16)buttonId);
+            p                = write_u16(p, (u16)state);
+            ASSERTS((u16)(p - buffer) == MsgLen, "Unexpected message length for button event");
+            return MsgLen;
         }
 
         // - Rotary event: [MessageTypeInputEvent(u16), MessageLen(u16), InputTypeRotary(u16), rotation(int32)]
-        static inline u8* write_rotary_event(u8* buffer, s32 rotation)
+        static inline u16 write_rotary_event(u8* buffer, s32 rotation)
         {
             const u16 MsgLen = 10;
-            buffer[0]        = MessageTypeInputEvent;
-            buffer[1]        = MessageTypeInputEvent >> 8;
-            buffer[2]        = MsgLen & 0xFF;
-            buffer[3]        = (MsgLen >> 8) & 0xFF;
-            buffer[4]        = InputTypeRotary;
-            buffer[5]        = InputTypeRotary >> 8;
-            buffer[6]        = (u8)(rotation & 0xFF);
-            buffer[7]        = (u8)((rotation >> 8) & 0xFF);
-            buffer[8]        = (u8)((rotation >> 16) & 0xFF);
-            buffer[9]        = (u8)((rotation >> 24) & 0xFF);
-            return buffer + MsgLen;
+            u8*       p      = buffer;
+            p                = write_u16(p, MessageTypeInputEvent);
+            p                = write_u16(p, MsgLen);
+            p                = write_u16(p, InputTypeRotary);
+            p                = write_u32(p, (u32)rotation);
+            ASSERTS((u16)(p - buffer) == MsgLen, "Unexpected message length for rotary event");
+            return MsgLen;
         }
 
     }  // namespace nmui

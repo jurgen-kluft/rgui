@@ -107,6 +107,40 @@ namespace ncore
             u8 index = static_cast<u8>(bpp_id);
             return (index < 16) ? bpp_lookup_table[index] : 0;
         }
+
+        enum known_lcd_boards_t
+        {
+            LCD_BOARD_WCS_320X480_3_5_INCH = 0x01  // WCS 320x480 TFT 3.5'' LCD
+            // Future LCD board definitions can be added here with unique identifiers
+        };
+
+        static inline u16 get_display_format(known_lcd_boards_t lcd_board)
+        {
+            switch (lcd_board)
+            {
+                case LCD_BOARD_WCS_320X480_3_5_INCH: return DF_RGB565_GENERIC;  // WCS 320x480 uses RGB565 format
+            }
+            // For the WCS LCD, we use a 16-bit RGB565 format with little-endian byte order and linear layout
+            return DF_RGB565_GENERIC;
+        }
+
+        static inline u16 get_display_width(known_lcd_boards_t lcd_board)
+        {
+            switch (lcd_board)
+            {
+                case LCD_BOARD_WCS_320X480_3_5_INCH: return 320;  // WCS 320x480 has a width of 320 pixels
+            }
+            return 0;  // Unknown board
+        }
+        
+        static inline u16 get_display_height(known_lcd_boards_t lcd_board)
+        {
+            switch (lcd_board)
+            {
+                case LCD_BOARD_WCS_320X480_3_5_INCH: return 480;  // WCS 320x480 has a height of 480 pixels
+            }
+            return 0;  // Unknown board
+        }
     }  // namespace nmui
 }  // namespace ncore
 

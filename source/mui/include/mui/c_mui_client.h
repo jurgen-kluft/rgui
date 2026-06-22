@@ -7,22 +7,12 @@
 
 #include "rwifi/c_wifi_mgr.h"
 #include "rwifi/c_tcp_client.h"
-#include "rmui/c_input_msg.h"
+#include "mui/c_input_msg.h"
 
 namespace ncore
 {
     namespace nmui
     {
-        struct client_info_t
-        {
-            u16 m_message_type;    // should be MessageTypeClientInfo
-            u16 m_message_len;     // 16 (fixed size of the ClientInfo struct)
-            u16 m_display_format;  // see display_format_t
-            u16 m_screen_width;    // in pixels
-            u16 m_screen_height;   // in pixels
-            u8  m_mac_address[6];  // MAC address of the client device
-        };
-
         bool init_mui_client(nwifi::wifi_manager_t* wifi_mgr);
 
         enum mui_state_t

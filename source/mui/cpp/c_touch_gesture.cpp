@@ -1,9 +1,10 @@
-#include "rmui/c_touch_gesture.h"
 #include "cfenc/c_decoder.h"
 #include "rcore/c_timer.h"
 #include "rcore/c_system.h"
 #include "ccore/c_math.h"
 #include "ccore/c_memory.h"
+
+#include "mui/c_touch_gesture.h"
 
 namespace ncore
 {

@@ -28,7 +28,7 @@ func GetPackage() *denv.Package {
 	mainpkg.AddPackage(fencpkg)
 
 	// mui library
-	mainlib := denv.SetupCppLibProject(mainpkg, repo_name)
+	mainlib := denv.SetupCppLibrary(mainpkg, "mui", "mui")
 	mainlib.AddDependencies(corepkg.GetMainLib())
 	mainlib.AddDependencies(wifipkg.GetMainLib())
 	mainlib.AddDependency(lcdpkg.GetLibrary("library_wcs"))

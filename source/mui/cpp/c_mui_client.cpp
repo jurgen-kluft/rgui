@@ -5,7 +5,6 @@
 #include "rcore/c_packet.h"
 #include "rcore/c_str.h"
 #include "rcore/c_system.h"
-#include "rcore/c_task.h"
 #include "rcore/c_wire.h"
 
 #include "ccore/c_memory.h"
@@ -21,10 +20,10 @@
 #include "cfenc/c_codec.h"
 #include "cfenc/c_decoder.h"
 
-#include "rmui/c_display.h"
-#include "rmui/c_display_format.h"
-#include "rmui/c_mui_client.h"
-#include "rmui/c_client_msg.h"
+#include "mui/c_display.h"
+#include "mui/c_display_format.h"
+#include "mui/c_mui_client.h"
+#include "mui/c_client_msg.h"
 
 namespace ncore
 {
@@ -75,23 +74,32 @@ namespace ncore
             const u16  msg_type = hdr[0];
             const u16  msg_len  = hdr[1];
 
+            ntcp::tcp_buffer_t buffer;
             if (msg_type == nfenc::MSG_ID_FRAME_BEGIN)
             {
                 // frame begin message
-                return ntcp::tcp_buffer_t((u8*)&gMuiClient.m_header, msg_len - 4);
+                buffer.m_buffer = (u8*)&gMuiClient.m_header;
+                buffer.m_length = msg_len - 4;  // subtract the size of the header
+                return buffer;
             }
             else if (msg_type == nfenc::MSG_ID_FRAME_LINE)
             {
                 // frame line message, we use the ring buffer to receive the line data
-                return ntcp::tcp_buffer_t((u8*)gMuiClient.m_msg_buffer, msg_len - 4);
+                buffer.m_buffer = (u8*)gMuiClient.m_msg_buffer;
+                buffer.m_length = msg_len - 4;
+                return buffer;
             }
             else if (msg_type == nfenc::MSG_ID_FRAME_END)
             {
                 // frame end message, we don't have any data to receive, just return a dummy buffer
-                return ntcp::tcp_buffer_t((u8*)gMuiClient.m_msg_buffer, msg_len - 4);
+                buffer.m_buffer = (u8*)gMuiClient.m_msg_buffer;
+                buffer.m_length = msg_len - 4;
+                return buffer;
             }
 
-            return ntcp::tcp_buffer_t((u8*)gMuiClient.m_msg_buffer, 0);
+            buffer.m_buffer = (u8*)gMuiClient.m_msg_buffer;
+            buffer.m_length = 0;
+            return buffer;
         }
 
         static void tcp_recv_commit(void* ctx, void* _hdr, ntcp::tcp_buffer_t buffer)
@@ -141,7 +149,7 @@ namespace ncore
             mui_client_t* mui_client = (mui_client_t*)ctx;
 
             client_info_t client_info;
-            client_info.m_message_type   = 'CI';  // MessageTypeClientInfo
+            client_info.m_message_type   = (u16)'C' << 8 | (u16)'I';  // MessageTypeClientInfo
             client_info.m_message_len    = sizeof(client_info_t);
             client_info.m_display_format = ncore::nmui::get_display_format(gLcdBoard);
             client_info.m_screen_width   = ncore::nmui::get_display_width(gLcdBoard);
@@ -164,7 +172,7 @@ namespace ncore
             if (mui_client->m_state == MUI_STATE_ACTIVE)
             {
                 // send a message to server to request a new frame
-                u16                 msg_type   = 'RF';  // MessageTypeRequestFrame
+                u16                 msg_type   = (u16)'R' << 8 | (u16)'F';  // MessageTypeRequestFrame
                 ntcp::tcp_client_t* tcp_client = &mui_client->m_tcp_client;
                 ntcp::send(*tcp_client, &msg_type, sizeof(msg_type));
             }
@@ -238,6 +246,12 @@ namespace ncore
             }
 
             return gMuiClient.m_state;
+        }
+
+        void send_input_event(u8 const* event_data, u16 event_len)
+        {
+            // send the input event to the server
+            ntcp::send(gMuiClient.m_tcp_client, event_data, event_len);
         }
 
     }  // namespace nmui

@@ -5,7 +5,6 @@
 #include "rcore/c_packet.h"
 #include "rcore/c_str.h"
 #include "rcore/c_system.h"
-#include "rcore/c_task.h"
 #include "rcore/c_wire.h"
 #include "ccore/c_random.h"
 
@@ -16,8 +15,8 @@
 #include "lib_wcs/c_touch.h"
 #include "lib_wcs/c_sdcard.h"
 
-#include "rmui/c_mui_client.h"
-#include "rmui/c_touch_gesture.h"
+#include "mui/c_mui_client.h"
+#include "mui/c_touch_gesture.h"
 
 namespace ncore
 {
@@ -35,7 +34,6 @@ namespace ncore
     };
 
     state_app_t  gAppState;
-    state_task_t gAppTask;
 
 }  // namespace ncore
 
@@ -201,6 +199,7 @@ namespace ncore
                 u16 ey    = sy + (g_random_u32_range(&gAppState.gRandom, 0, 40) + 10);  // Random height between 10 and 50 pixels
 
                 nlcd::draw_rectangle(sx, sy, ex, ey, color);
+
                 toggle_lcd_fill_time = ntimer::millis();
             }
         }

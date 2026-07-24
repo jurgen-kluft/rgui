@@ -11,20 +11,23 @@
 #include "rwifi/c_wifi_mgr.h"
 #include "rwifi/c_tcp_client.h"
 
-#include "lib_wcs/c_lcd.h"
-#include "lib_wcs/c_touch.h"
-#include "lib_wcs/c_sdcard.h"
+#include "lib_guition/c_lcd.h"
+#include "lib_guition/c_sdcard.h"
 
-#include "mui/c_mui_client.h"
-#include "mui/c_touch_gesture.h"
+#include "lib_touch/c_touch_gt911.h"
+#include "lib_touch/c_touch_gesture.h"
+
+#include "gui/c_display.h"
+#include "gui/c_draw.h"
+#include "gui/c_asset_db.h"
 
 namespace ncore
 {
     struct state_app_t
     {
-        xor_random_t          gRandom;        // XORShift random number generator for any randomization needs
-        ntouch::touch_panel_t gTouchPanel;    // Touch panel state
-        nmui::touch_gesture_t gTouchGesture;  // Touch gesture state
+        xor_random_t            gRandom;        // XORShift random number generator for any randomization needs
+        ntouch::touch_t         gTouch;         // Touch
+        ntouch::touch_gesture_t gTouchGesture;  // Touch gesture state
 
         nwifi::wifi_manager_t gWifiManager;  // WiFi manager for network connectivity
         nwifi::wifi_config_t  gWifiConfig;   // WiFi configuration
@@ -33,7 +36,7 @@ namespace ncore
         ntcp::config_t     gSensorServerTcpConfig;  // TCP client configuration
     };
 
-    state_app_t  gAppState;
+    state_app_t gAppState;
 
 }  // namespace ncore
 
@@ -70,11 +73,22 @@ namespace ncore
             }
             else
             {
-                if (ntouch::tp_init(gAppState.gTouchPanel, nlcd::width(), nlcd::height()) == false)
+                const u8                i2c_addr = 0x5D;                     // GT911 I2C address
+                const i8                sda_pin  = 19;                       // GT911 SDA pin
+                const i8                scl_pin  = 45;                       // GT911 SCL pin
+                const i8                int_pin  = -1;                       // GT911 INT pin (not used)
+                const i8                rst_pin  = -1;                       // GT911 RST pin (not used)
+                const ntouch::erotate_t rotate   = ntouch::cTP_ROTATE_0;     // No rotation
+                const ntouch::emirror_t mirror   = ntouch::cTP_MIRROR_NONE;  // No mirroring
+
+                const u16 width  = nlcd::width();
+                const u16 height = nlcd::height();
+
+                if (ntouch::ngt911::touch_init(gAppState.gTouch, width, height, 50, i2c_addr, sda_pin, scl_pin, int_pin, rst_pin, rotate, mirror) == false)
                 {
                     nlog::println("Failed to initialize touch panel");
                 }
-                nmui::init_touch_gesture(gAppState.gTouchGesture, nmui::gesture_config_t());
+                ntouch::init_touch_gesture(gAppState.gTouchGesture, ntouch::gesture_config_t());
 
                 if (nlcd::sdcard_initialize() == false)
                 {
@@ -92,8 +106,6 @@ namespace ncore
                     }
                 }
 
-                nmui::init_mui_client(&gAppState.gWifiManager);
-
                 nlog::println("Setup complete");
             }
         }
@@ -105,9 +117,7 @@ namespace ncore
             const u64 now_ms = ntimer::millis();
 
             ntcp::tick_tcp_client(&gAppState.gWifiManager, gAppState.gSensorServerTcpClient);
-            nmui::mui_state_t mui_state = nmui::tick_mui_client(&gAppState.gWifiManager, now_ms);
 
-            if (mui_state == nmui::MUI_STATE_DISPLAY_OFF || mui_state == nmui::MUI_STATE_ACTIVE)
             {
                 // When the display is OFF we can sample the sensors at the normal rate and send data
                 // to the sensor server, but no frames will be requested from the server.
@@ -120,69 +130,68 @@ namespace ncore
 
             ntimer::tick_periodic_task(&gBlinkLedTask, now_ms);
 
-            if (ntouch::tp_scan(gAppState.gTouchPanel, 0))
-            {
-                bool                p1_present = false;
-                nmui::touch_point_t p1;
-                bool                p2_present = false;
-                nmui::touch_point_t p2;
+            ntouch::touch_point_t p1, p2;
+            bool                  p1_present = false;
+            bool                  p2_present = false;
 
-                const u8 num_points = ntouch::tp_get_touch_point_num(gAppState.gTouchPanel);
-                for (u8 i = 0; i < num_points; i++)
+            u8                    num_points = 0;
+            ntouch::touch_point_t points[ntouch::TP_CT_MAX_TOUCH];
+            if (ntouch::touch_scan(gAppState.gTouch, now_ms, points, ntouch::TP_CT_MAX_TOUCH, &num_points) == true)
+            {
+                if (num_points > 0)
                 {
-                    if (ntouch::tp_is_valid_touch_point(gAppState.gTouchPanel, i))
+                    nlog::log_infof("main", "Touch detected: %u points", va_list_t(va_t(num_points)));
+                    for (u8 i = 0; i < num_points; i++)
                     {
-                        if (i == 0)
+                        const ntouch::touch_point_t* point = &points[i];
+                        if (point != nullptr)
                         {
-                            p1_present = true;
-                            p1.m_x     = ntouch::tp_get_touch_point(gAppState.gTouchPanel, i).x;
-                            p1.m_y     = ntouch::tp_get_touch_point(gAppState.gTouchPanel, i).y;
-                        }
-                        else if (i == 1)
-                        {
-                            p2_present = true;
-                            p2.m_x     = ntouch::tp_get_touch_point(gAppState.gTouchPanel, i).x;
-                            p2.m_y     = ntouch::tp_get_touch_point(gAppState.gTouchPanel, i).y;
+                            if (i == 0)
+                            {
+                                p1_present = true;
+                                p1         = *point;
+                            }
+                            else if (i == 1)
+                            {
+                                p2_present = true;
+                                p2         = *point;
+                            }
                         }
                     }
                 }
 
-                nmui::gesture_type_t gesture = nmui::update_touch_gesture(gAppState.gTouchGesture, p1_present, p1, p2_present, p2);
+                ntouch::egesture_type_t gesture = ntouch::update_touch_gesture(gAppState.gTouchGesture, now_ms, p1_present, p1, p2_present, p2);
 
-                if (gesture == nmui::GT_TAP)
+                if (gesture == ntouch::GT_TAP)
                 {
-                    nmui::touch_point_t tap_point = nmui::get_single_tap_location(gAppState.gTouchGesture);
-                    u8                  event_data[16];
-                    const u16           event_data_len = nmui::write_single_tap_event(event_data, (s16)tap_point.m_x, (s16)tap_point.m_y);
-                    nmui::send_input_event(event_data, event_data_len);
+                    ntouch::touch_point_t tap_point = ntouch::get_single_tap_location(gAppState.gTouchGesture);
+                    nlog::println("Single tap detected");
                 }
-                else if (gesture == nmui::GT_DOUBLE_TAP)
+                else if (gesture == ntouch::GT_DOUBLE_TAP)
                 {
-                    nmui::touch_point_t tap_point = nmui::get_single_tap_location(gAppState.gTouchGesture);
-                    u8                 event_data[16];
-                    const u16          event_data_len = nmui::write_double_tap_event(event_data, (s16)tap_point.m_x, (s16)tap_point.m_y);
-                    nmui::send_input_event(event_data, event_data_len);
+                    ntouch::touch_point_t tap_point = ntouch::get_single_tap_location(gAppState.gTouchGesture);
+                    nlog::println("Double tap detected");
                 }
-                else if ((gesture & nmui::GT_SWIPE_ONE_FINGER) != 0)
+                else if ((gesture & ntouch::GT_SWIPE_ONE_FINGER) != 0)
                 {
-                    if ((gesture & nmui::GT_DIR_LEFT) != 0)
+                    if ((gesture & ntouch::GT_DIR_LEFT) != 0)
                         nlog::println("One finger swipe left detected");
-                    else if ((gesture & nmui::GT_DIR_RIGHT) != 0)
+                    else if ((gesture & ntouch::GT_DIR_RIGHT) != 0)
                         nlog::println("One finger swipe right detected");
-                    else if ((gesture & nmui::GT_DIR_UP) != 0)
+                    else if ((gesture & ntouch::GT_DIR_UP) != 0)
                         nlog::println("One finger swipe up detected");
-                    else if ((gesture & nmui::GT_DIR_DOWN) != 0)
+                    else if ((gesture & ntouch::GT_DIR_DOWN) != 0)
                         nlog::println("One finger swipe down detected");
                 }
-                else if ((gesture & nmui::GT_SWIPE_TWO_FINGER) != 0)
+                else if ((gesture & ntouch::GT_SWIPE_TWO_FINGER) != 0)
                 {
-                    if ((gesture & nmui::GT_DIR_LEFT) != 0)
+                    if ((gesture & ntouch::GT_DIR_LEFT) != 0)
                         nlog::println("Two finger swipe left detected");
-                    else if ((gesture & nmui::GT_DIR_RIGHT) != 0)
+                    else if ((gesture & ntouch::GT_DIR_RIGHT) != 0)
                         nlog::println("Two finger swipe right detected");
-                    else if ((gesture & nmui::GT_DIR_UP) != 0)
+                    else if ((gesture & ntouch::GT_DIR_UP) != 0)
                         nlog::println("Two finger swipe up detected");
-                    else if ((gesture & nmui::GT_DIR_DOWN) != 0)
+                    else if ((gesture & ntouch::GT_DIR_DOWN) != 0)
                         nlog::println("Two finger swipe down detected");
                 }
             }

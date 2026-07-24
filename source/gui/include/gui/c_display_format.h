@@ -1,5 +1,5 @@
-#ifndef __RMUI_DISPLAY_FORMAT_H__
-#define __RMUI_DISPLAY_FORMAT_H__
+#ifndef __RGUI_DISPLAY_FORMAT_H__
+#define __RGUI_DISPLAY_FORMAT_H__
 #include "rcore/c_target.h"
 #ifdef USE_PRAGMA_ONCE
     #pragma once
@@ -144,4 +144,4 @@ namespace ncore
     }  // namespace nmui
 }  // namespace ncore
 
-#endif  // __RMUI_DISPLAY_FORMAT_H__
+#endif  // __RGUI_DISPLAY_FORMAT_H__

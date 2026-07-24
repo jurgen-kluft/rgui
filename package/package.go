@@ -1,8 +1,9 @@
-package rmui
+package rgui
 
 import (
 	denv "github.com/jurgen-kluft/ccode/denv"
-	cfenc "github.com/jurgen-kluft/cfenc/package"
+	ccova "github.com/jurgen-kluft/ccova/package"
+	cgx2 "github.com/jurgen-kluft/cgx2/package"
 	rcore "github.com/jurgen-kluft/rcore/package"
 	rlcd "github.com/jurgen-kluft/rlcd/package"
 	rwifi "github.com/jurgen-kluft/rwifi/package"
@@ -10,7 +11,7 @@ import (
 
 const (
 	repo_path = "github.com\\jurgen-kluft"
-	repo_name = "rmui"
+	repo_name = "rgui"
 )
 
 func GetPackage() *denv.Package {
@@ -18,24 +19,28 @@ func GetPackage() *denv.Package {
 	corepkg := rcore.GetPackage()
 	wifipkg := rwifi.GetPackage()
 	lcdpkg := rlcd.GetPackage()
-	fencpkg := cfenc.GetPackage()
+	ccovapkg := ccova.GetPackage()
+	cgx2pkg := cgx2.GetPackage()
 
 	// main package
 	mainpkg := denv.NewPackage(repo_path, repo_name)
 	mainpkg.AddPackage(corepkg)
 	mainpkg.AddPackage(wifipkg)
 	mainpkg.AddPackage(lcdpkg)
-	mainpkg.AddPackage(fencpkg)
+	mainpkg.AddPackage(ccovapkg)
+	mainpkg.AddPackage(cgx2pkg)
 
-	// mui library
-	mainlib := denv.SetupCppLibrary(mainpkg, "mui", "mui")
+	// gui library
+	mainlib := denv.SetupCppLibrary(mainpkg, "gui", "gui")
 	mainlib.AddDependencies(corepkg.GetMainLib())
 	mainlib.AddDependencies(wifipkg.GetMainLib())
 	mainlib.AddDependency(lcdpkg.GetLibrary("library_wcs"))
-	mainlib.AddDependencies(fencpkg.GetMainLib())
+	mainlib.AddDependencies(ccovapkg.GetMainLib())
+	mainlib.AddDependencies(cgx2pkg.GetMainLib())
 
-	// mui application
+	// gui application
 	mainapp := denv.SetupCppAppProjectForArduinoEsp32(mainpkg, repo_name, "main")
+	mainlib.AddDependency(lcdpkg.GetLibrary("library_touch"))
 	mainapp.AddDependency(mainlib)
 
 	mainpkg.AddMainApp(mainapp)

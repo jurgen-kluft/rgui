@@ -1,15 +1,13 @@
-#ifndef __RMUI_DISPLAY_H__
-#define __RMUI_DISPLAY_H__
+#ifndef __RGUI_DISPLAY_H__
+#define __RGUI_DISPLAY_H__
 #include "rcore/c_target.h"
 #ifdef USE_PRAGMA_ONCE
     #pragma once
 #endif
 
-#include "cfenc/c_dirty_tiles.h"
-
 namespace ncore
 {
-    namespace nmui
+    namespace ngui
     {
         struct display_t
         {
@@ -19,13 +17,8 @@ namespace ncore
         };
 
         void init_display(display_t& display, u16 display_width, u16 display_height);
-        
-        // Simple tile based rendering function that takes the dirty tiles and updates 
-        // only those tiles on the hardware display.
-        void render_tiles(display_t& display, const nfenc::dirty_tiles_t& dirty_tiles);
 
-
-    }  // namespace nmui
+    }  // namespace ngui
 }  // namespace ncore
 
-#endif  // __RMUI_DISPLAY_H__
+#endif  // __RGUI_DISPLAY_H__

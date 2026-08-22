@@ -11,10 +11,9 @@ namespace ncore
 {
     namespace ngui
     {
-        // The asset db exists in PSRAM
-        void prepare_asset_db(u32 size = 2 * 1024 * 1024);  // default size is 2MB
-        void build_asset_db(byte const* data, u32 size, u32 offset);
-        void finalize_asset_db();
+        void set_sprite_pack(ngx2::sprite_pack_t* sprite_pack);
+        void set_palette_pack(ngx2::palette_pack_t* palette_pack);
+        void set_font_pack(ngx2::font_pack_t* font_pack);
 
         ngx2::sprite_t*  get_sprite(u32 index);
         ngx2::palette_t* get_palette(u32 index);

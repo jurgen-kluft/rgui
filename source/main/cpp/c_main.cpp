@@ -21,27 +21,12 @@
 #include "gui/c_draw.h"
 #include "gui/c_asset_db.h"
 
-namespace ncore
-{
-    struct state_app_t
-    {
-        xor_random_t            gRandom;        // XORShift random number generator for any randomization needs
-        ntouch::touch_t         gTouch;         // Touch
-        ntouch::touch_gesture_t gTouchGesture;  // Touch gesture state
-
-        nwifi::wifi_manager_t gWifiManager;  // WiFi manager for network connectivity
-        nwifi::wifi_config_t  gWifiConfig;   // WiFi configuration
-
-        ntcp::tcp_client_t gSensorServerTcpClient;  // TCP client for server communication
-        ntcp::config_t     gSensorServerTcpConfig;  // TCP client configuration
-    };
-
-    state_app_t gAppState;
-
-}  // namespace ncore
+#include "main/c_main.h"
 
 namespace ncore
 {
+    app_data_t gAppState;
+
     namespace napp
     {
         void wakeup(state_t* state, ncore::nwakeup::reason_t reason)
@@ -60,54 +45,13 @@ namespace ncore
         {
             nlog::println("Setup begin");
 
-            void* tcp_socket = ntcp::setup_default(&gAppState.gSensorServerTcpConfig);
-            ntcp::setup(gAppState.gSensorServerTcpClient, &gAppState.gSensorServerTcpConfig, tcp_socket, SENSOR_SERVER_IP(), SENSOR_SERVER_TCPPORT(), nullptr, 0);
+            void* tcp_socket = nnet::setup_default(&gAppState.gSensorServerTcpConfig);
+            nnet::setup(gAppState.gSensorServerTcpClient, &gAppState.gSensorServerTcpConfig, tcp_socket, SENSOR_SERVER_IP(), SENSOR_SERVER_TCPPORT());
 
-            nwifi::init_wifi_config(gAppState.gWifiConfig, WIFI_SSID(), WIFI_PASSWORD());
-            nwifi::setup(gAppState.gWifiManager, &gAppState.gWifiConfig);
-            nwifi::activate(gAppState.gWifiManager);
+            nnet::init_wifi_config(gAppState.gWifiConfig, WIFI_SSID(), WIFI_PASSWORD());
+            nnet::setup(gAppState.gWifiManager, &gAppState.gWifiConfig);
+            nnet::activate(gAppState.gWifiManager);
 
-            if (nlcd::initialize() == false)
-            {
-                nlog::println("Failed to initialize LCD");
-            }
-            else
-            {
-                const u8                i2c_addr = 0x5D;                     // GT911 I2C address
-                const i8                sda_pin  = 19;                       // GT911 SDA pin
-                const i8                scl_pin  = 45;                       // GT911 SCL pin
-                const i8                int_pin  = -1;                       // GT911 INT pin (not used)
-                const i8                rst_pin  = -1;                       // GT911 RST pin (not used)
-                const ntouch::erotate_t rotate   = ntouch::cTP_ROTATE_0;     // No rotation
-                const ntouch::emirror_t mirror   = ntouch::cTP_MIRROR_NONE;  // No mirroring
-
-                const u16 width  = nlcd::width();
-                const u16 height = nlcd::height();
-
-                if (ntouch::ngt911::touch_init(gAppState.gTouch, width, height, 50, i2c_addr, sda_pin, scl_pin, int_pin, rst_pin, rotate, mirror) == false)
-                {
-                    nlog::println("Failed to initialize touch panel");
-                }
-                ntouch::init_touch_gesture(gAppState.gTouchGesture, ntouch::gesture_config_t());
-
-                if (nlcd::sdcard_initialize() == false)
-                {
-                    nlog::println("Failed to initialize SD card");
-                }
-                else
-                {
-                    nlog::println("SD card initialized successfully");
-
-                    u64 total_bytes, free_bytes;
-                    if (nlcd::sdcard_get_usage(&total_bytes, &free_bytes))
-                    {
-                        nlog::printfln("SD card total size: %.2f MB", va_t(total_bytes / (1024.0 * 1024.0)));
-                        nlog::printfln("SD card free space: %.2f MB", va_t(free_bytes / (1024.0 * 1024.0)));
-                    }
-                }
-
-                nlog::println("Setup complete");
-            }
         }
 
         static u64 toggle_lcd_fill_time = 0;
@@ -116,14 +60,13 @@ namespace ncore
         {
             const u64 now_ms = ntimer::millis();
 
-            ntcp::tick_tcp_client(&gAppState.gWifiManager, gAppState.gSensorServerTcpClient);
+            nnet::tick_tcp_client(&gAppState.gWifiManager, gAppState.gSensorServerTcpClient);
 
             {
                 // When the display is OFF we can sample the sensors at the normal rate and send data
-                // to the sensor server, but no frames will be requested from the server.
+                // to the sensor server.
                 // When the display is ACTIVE we will sample the sensors at a lower rate and send data
-                // to the sensor server, and we will also request frames from the server at a regular interval.
-                // When the display is RECEIVING_FRAME or RENDERING_FRAME this code here is not executed
+                // to the sensor server.
 
                 // Sample sensors
             }

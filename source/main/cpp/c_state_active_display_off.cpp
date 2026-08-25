@@ -1,13 +1,13 @@
 #include "rcore/c_app.h"
 #include "rcore/c_log.h"
 
-#include "main/c_main.h"
+#include "main/c_app_data.h"
 
 namespace ncore
 { 
-    i32 state_active_display_off(state_call_t call, app_data_t& app_data)
+    void state_active_display_off(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms)
     {
-        return 1;
+        
     }
 
 }  // namespace ncore

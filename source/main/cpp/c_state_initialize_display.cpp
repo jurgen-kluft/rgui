@@ -4,25 +4,29 @@
 #include "lib_guition/c_lcd.h"
 #include "gui/c_display.h"
 
-#include "main/c_main.h"
+#include "main/c_app_data.h"
 
 namespace ncore
-{ 
-    i32 state_initialize_display(state_call_t call, app_data_t& app_data)
+{
+    void state_initialize_display(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms)
     {
-        if (call == STATE_CALL_ENTER)
+        if (state_data.m_current_state == 0)
         {
             nlog::println("Initialize Display - Begin");
 
             if (nlcd::initialize() == false)
             {
                 nlog::println("Initialize Display - Failed to initialize LCD");
-                return -1;
+                state_data.m_next_state = FSM_STATE_ERROR;
+            }
+            else
+            {
+                // Leave
+                state_data.m_next_state = (fsm_state_enum_t)(state_data.m_current_state + 1);  // Move to the next state in the FSM
             }
 
             nlog::println("Initialize Display - Complete");
         }
-        return 1;
     }
 
 }  // namespace ncore

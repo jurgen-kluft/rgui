@@ -1,9 +1,9 @@
 package rgui
 
 import (
-	denv "github.com/jurgen-kluft/ccode/denv"
 	ccova "github.com/jurgen-kluft/ccova/package"
 	cgx2 "github.com/jurgen-kluft/cgx2/package"
+	denv "github.com/jurgen-kluft/go-ide/denv"
 	rcore "github.com/jurgen-kluft/rcore/package"
 	rlcd "github.com/jurgen-kluft/rlcd/package"
 	rwifi "github.com/jurgen-kluft/rwifi/package"

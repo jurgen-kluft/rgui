@@ -1,4 +1,4 @@
-# Arduino GUI App
+# GUI App (Arduino)
 
 - Custom UI
   - Draw Sprite

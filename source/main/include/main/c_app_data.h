@@ -37,10 +37,7 @@ namespace ncore
     {
         FSM_STATE_NONE = 0,
         FSM_STATE_CONNECT_TO_WIFI,
-        FSM_STATE_CONNECT_TO_ASSET_SERVER,
         FSM_STATE_DOWNLOAD_FROM_ASSET_SERVER,
-        FSM_STATE_VALIDATE_ASSET_DATA,
-        FSM_STATE_DISCONNECT_FROM_ASSET_SERVER,
         FSM_STATE_CONNECT_TO_SENSOR_SERVER,
         FSM_STATE_INITIALIZE_SENSORS,
         FSM_STATE_INITIALIZE_DISPLAY,
@@ -67,10 +64,7 @@ namespace ncore
     void handle_state_data(fsm_state_data_t& state_data, app_data_t& app_data);
 
     void state_connect_to_wifi(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
-    void state_connect_to_asset_server(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
     void state_download_from_asset_server(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
-    void state_validate_asset_data(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
-    void state_disconnect_from_asset_server(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
 
     void state_connect_to_sensor_server(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
     void state_initialize_sensors(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
@@ -100,9 +94,11 @@ namespace ncore
         nnet::tcp_client_t m_tcpclient_asset_server;   // TCP client for server communication
         nnet::tcp_client_t m_tcpclient_sensor_server;  // TCP client for server communication
 
-        ngx2::sprite_pack_t*  m_sprites;   // pointer to the array of assets in PSRAM
-        ngx2::font_pack_t*    m_fonts;     // pointer to the array of fonts in PSRAM
-        ngx2::palette_pack_t* m_palettes;  // pointer to the array of palettes in PSRAM
+        ngx2::sprite_pack_t*  m_sprites;             // pointer to the array of assets in PSRAM
+        ngx2::font_pack_t*    m_fonts;               // pointer to the array of fonts in PSRAM
+        ngx2::palette_pack_t* m_palettes;            // pointer to the array of palettes in PSRAM
+        void*                 m_script_binary;       // pointer to the script binary in PSRAM
+        u32                   m_script_binary_size;  // size of the script binary in bytes
 
         fsm_state_data_t m_state_data;                 // Current state call type (enter, update, leave)
         state_fn_t       m_state_fn[FSM_STATE_COUNT];  // Array of state functions for each application state

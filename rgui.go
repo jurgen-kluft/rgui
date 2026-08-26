@@ -2,7 +2,7 @@ package main
 
 import (
 	ccode "github.com/jurgen-kluft/ccode"
-	cpkg "github.com/jurgen-kluft/rmui/package"
+	cpkg "github.com/jurgen-kluft/rgui/package"
 )
 
 func main() {

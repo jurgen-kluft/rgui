@@ -38,15 +38,13 @@ namespace ncore
         nnet::init_wifi_config(app_data.m_wifi_config, WIFI_SSID(), WIFI_PASSWORD(), 1000, 16000, 2.0f, 0.1f);
         nnet::setup_default(&app_data.m_tcpclient_config);
 
+        app_data.m_state_data.m_state_data     = 0;
         app_data.m_state_data.m_current_state  = FSM_STATE_CONNECT_TO_WIFI;
         app_data.m_state_data.m_previous_state = FSM_STATE_NONE;
         app_data.m_state_data.m_next_state     = FSM_STATE_NONE;
 
         app_data.m_state_fn[FSM_STATE_CONNECT_TO_WIFI]              = state_connect_to_wifi;
-        app_data.m_state_fn[FSM_STATE_CONNECT_TO_ASSET_SERVER]      = state_connect_to_asset_server;
         app_data.m_state_fn[FSM_STATE_DOWNLOAD_FROM_ASSET_SERVER]   = state_download_from_asset_server;
-        app_data.m_state_fn[FSM_STATE_VALIDATE_ASSET_DATA]          = state_validate_asset_data;
-        app_data.m_state_fn[FSM_STATE_DISCONNECT_FROM_ASSET_SERVER] = state_disconnect_from_asset_server;
         app_data.m_state_fn[FSM_STATE_CONNECT_TO_SENSOR_SERVER]     = state_connect_to_sensor_server;
         app_data.m_state_fn[FSM_STATE_INITIALIZE_SENSORS]           = state_initialize_sensors;
         app_data.m_state_fn[FSM_STATE_INITIALIZE_DISPLAY]           = state_initialize_display;
@@ -83,19 +81,14 @@ namespace ncore
         return font;
     }
 
-    const void* get_script(app_data_t* data, u32* script_binary_size)
+    bool get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size)
     {
-        const void* script_binary = nullptr;
-        if (data != nullptr && script_binary_size != nullptr)
+        if (data != nullptr)
         {
-            *script_binary_size = 0;
-            if (data->m_sprites != nullptr)
-            {
-                script_binary       = data->m_sprites->script_binary;
-                *script_binary_size = data->m_sprites->script_binary_size;
-            }
+            script_binary      = data->m_script_binary;
+            script_binary_size = data->m_script_binary_size;
         }
-        return script_binary;
+        return script_binary != nullptr && script_binary_size > 0;
     }
 
     void handle_state_data(fsm_state_data_t& state_data, app_data_t& app_data)

@@ -114,6 +114,9 @@ namespace ncore
                 // Release the TCP client connection to the asset server, as we have completed the download.
                 // Also free the plugins and their associated data, as they are no longer needed.
 
+                // TODO
+                // Possibly verify the integrity of the downloaded assets here (e.g., checksum, signature) before proceeding.
+
                 // Leave
                 state_data.m_next_state = (fsm_state_enum_t)(state_data.m_current_state + 1);  // Move to the next state in the FSM
             }

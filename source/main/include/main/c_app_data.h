@@ -35,19 +35,19 @@ namespace ncore
 
     enum fsm_state_enum_t
     {
-        FSM_STATE_NONE = 0,
-        FSM_STATE_CONNECT_TO_WIFI,
-        FSM_STATE_DOWNLOAD_FROM_ASSET_SERVER,
-        FSM_STATE_CONNECT_TO_SENSOR_SERVER,
-        FSM_STATE_INITIALIZE_SENSORS,
-        FSM_STATE_INITIALIZE_DISPLAY,
-        FSM_STATE_SHOW_SPLASH_SCREEN,
-        FSM_STATE_INITIALIZE_TOUCH,
-        FSM_STATE_INITIALIZE_SDCARD,
-        FSM_STATE_INITIALIZE_SCRIPT_VM,
-        FSM_STATE_ACTIVE_DISPLAY_ON,
-        FSM_STATE_ACTIVE_DISPLAY_OFF,
-        FSM_STATE_ERROR,
+        FSM_STATE_NONE = 0,                    //
+        FSM_STATE_CONNECT_TO_WIFI,             // First, connect to WiFi to enable network communication
+        FSM_STATE_DOWNLOAD_FROM_ASSET_SERVER,  // Next, download assets from the asset server
+        FSM_STATE_CONNECT_TO_SENSOR_SERVER,    // Next, connect to the sensor server
+        FSM_STATE_INITIALIZE_SENSORS,          // Next, initialize the sensors
+        FSM_STATE_INITIALIZE_DISPLAY,          // Next, initialize the display
+        FSM_STATE_SHOW_SPLASH_SCREEN,          // Next, show the splash screen
+        FSM_STATE_INITIALIZE_TOUCH,            // Next, initialize the touch interface
+        FSM_STATE_INITIALIZE_SDCARD,           // Next, initialize the SD card
+        FSM_STATE_INITIALIZE_SCRIPT_VM,        // Next, initialize the script VM
+        FSM_STATE_ACTIVE_DISPLAY_ON,           // This is the state that is active when the display is on
+        FSM_STATE_ACTIVE_DISPLAY_OFF,          // This is the state that is active when the display is off
+        FSM_STATE_ERROR,                       // Error state, entered when an unrecoverable error occurs
         FSM_STATE_COUNT,
     };
 

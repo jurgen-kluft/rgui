@@ -25,7 +25,7 @@ namespace ncore
         else if (state_data.m_state_data == 2)
         {
             // Leave
-            state_data.m_next_state = (fsm_state_enum_t)(state_data.m_current_state + 1);  // Move to the next state in the FSM
+            to_state_next(state_data);
         }
     }
 }  // namespace ncore

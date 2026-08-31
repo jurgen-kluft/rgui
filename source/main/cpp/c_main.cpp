@@ -29,8 +29,6 @@ namespace ncore
             init_app_data(gAppState);
         }
 
-        static u64 toggle_lcd_fill_time = 0;
-
         void tick(state_t* state)
         {
             const u64 now_ms = ntimer::millis();

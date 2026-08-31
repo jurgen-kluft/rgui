@@ -6,6 +6,7 @@
 #endif
 
 #include "ccore/c_random.h"
+
 #include "cgx2/c_types.h"
 
 #include "rwifi/c_wifi_mgr.h"
@@ -21,17 +22,10 @@ namespace ncore
 {
     struct app_data_t;
 
-    namespace ngx2
-    {
-        struct sprite_pack_t;
-        struct font_pack_t;
-        struct palette_pack_t;
-    }  // namespace ngx2
-
     ngx2::sprite_t*  get_sprite(app_data_t* data, u32 index);
     ngx2::palette_t* get_palette(app_data_t* data, u32 index);
     ngx2::font_t*    get_font(app_data_t* data, u32 index);
-    const void*      get_script(app_data_t* data, u32* script_binary_size);
+    bool             get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size);
 
     enum fsm_state_enum_t
     {
@@ -45,8 +39,7 @@ namespace ncore
         FSM_STATE_INITIALIZE_TOUCH,            // Next, initialize the touch interface
         FSM_STATE_INITIALIZE_SDCARD,           // Next, initialize the SD card
         FSM_STATE_INITIALIZE_SCRIPT_VM,        // Next, initialize the script VM
-        FSM_STATE_ACTIVE_DISPLAY_ON,           // This is the state that is active when the display is on
-        FSM_STATE_ACTIVE_DISPLAY_OFF,          // This is the state that is active when the display is off
+        FSM_STATE_ACTIVE,                      // This is the active state
         FSM_STATE_ERROR,                       // Error state, entered when an unrecoverable error occurs
         FSM_STATE_COUNT,
     };
@@ -58,6 +51,9 @@ namespace ncore
         fsm_state_enum_t m_previous_state;  // The previous state before the current state
         fsm_state_enum_t m_next_state;      // The next state to transition to after leaving the current state
     };
+
+    inline void to_state_error(fsm_state_data_t& state_data) { state_data.m_next_state = FSM_STATE_ERROR; }
+    inline void to_state_next(fsm_state_data_t& state_data) { state_data.m_next_state = (fsm_state_enum_t)(state_data.m_current_state + 1); }
 
     typedef void (*state_fn_t)(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
 
@@ -76,8 +72,7 @@ namespace ncore
 
     void state_initialize_script_vm(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
 
-    void state_active_display_on(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
-    void state_active_display_off(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
+    void state_active(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
 
     void state_error(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms);
 

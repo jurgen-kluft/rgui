@@ -17,14 +17,12 @@ namespace ncore
             if (nlcd::initialize() == false)
             {
                 nlog::println("Initialize Display - Failed to initialize LCD");
-                state_data.m_next_state = FSM_STATE_ERROR;
-            }
-            else
-            {
-                // Leave
-                state_data.m_next_state = (fsm_state_enum_t)(state_data.m_current_state + 1);  // Move to the next state in the FSM
+                to_state_error(state_data);
+                return;
             }
 
+            // Leave
+            to_state_next(state_data);
             nlog::println("Initialize Display - Complete");
         }
     }

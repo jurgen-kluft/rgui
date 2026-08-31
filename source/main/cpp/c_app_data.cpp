@@ -2,7 +2,6 @@
 #include "rcore/c_gpio.h"
 #include "rcore/c_timer.h"
 #include "rcore/c_log.h"
-#include "rcore/c_packet.h"
 #include "rcore/c_str.h"
 #include "rcore/c_system.h"
 #include "rcore/c_wire.h"
@@ -43,41 +42,40 @@ namespace ncore
         app_data.m_state_data.m_previous_state = FSM_STATE_NONE;
         app_data.m_state_data.m_next_state     = FSM_STATE_NONE;
 
-        app_data.m_state_fn[FSM_STATE_CONNECT_TO_WIFI]              = state_connect_to_wifi;
-        app_data.m_state_fn[FSM_STATE_DOWNLOAD_FROM_ASSET_SERVER]   = state_download_from_asset_server;
-        app_data.m_state_fn[FSM_STATE_CONNECT_TO_SENSOR_SERVER]     = state_connect_to_sensor_server;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_SENSORS]           = state_initialize_sensors;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_DISPLAY]           = state_initialize_display;
-        app_data.m_state_fn[FSM_STATE_SHOW_SPLASH_SCREEN]           = state_show_splash_screen;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_TOUCH]             = state_initialize_touch;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_SDCARD]            = state_initialize_sdcard;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_SCRIPT_VM]         = state_initialize_script_vm;
-        app_data.m_state_fn[FSM_STATE_ACTIVE_DISPLAY_ON]            = state_active_display_on;
-        app_data.m_state_fn[FSM_STATE_ACTIVE_DISPLAY_OFF]           = state_active_display_off;
-        app_data.m_state_fn[FSM_STATE_ERROR]                        = state_error;
+        app_data.m_state_fn[FSM_STATE_CONNECT_TO_WIFI]            = state_connect_to_wifi;
+        app_data.m_state_fn[FSM_STATE_DOWNLOAD_FROM_ASSET_SERVER] = state_download_from_asset_server;
+        app_data.m_state_fn[FSM_STATE_CONNECT_TO_SENSOR_SERVER]   = state_connect_to_sensor_server;
+        app_data.m_state_fn[FSM_STATE_INITIALIZE_SENSORS]         = state_initialize_sensors;
+        app_data.m_state_fn[FSM_STATE_INITIALIZE_DISPLAY]         = state_initialize_display;
+        app_data.m_state_fn[FSM_STATE_SHOW_SPLASH_SCREEN]         = state_show_splash_screen;
+        app_data.m_state_fn[FSM_STATE_INITIALIZE_TOUCH]           = state_initialize_touch;
+        app_data.m_state_fn[FSM_STATE_INITIALIZE_SDCARD]          = state_initialize_sdcard;
+        app_data.m_state_fn[FSM_STATE_INITIALIZE_SCRIPT_VM]       = state_initialize_script_vm;
+        app_data.m_state_fn[FSM_STATE_ACTIVE]                     = state_active;
+        app_data.m_state_fn[FSM_STATE_ERROR]                      = state_error;
     }
 
     ngx2::sprite_t* get_sprite(app_data_t* data, u32 index)
     {
         ngx2::sprite_t* sprite = nullptr;
-        if (data->m_sprites != nullptr && index < data->m_sprites->num_sprites)
-            sprite = data->m_sprites->sprites.item<ngx2::sprite_t>(index);
+        if (data->m_sprites != nullptr && index < data->m_sprites->sprites.size())
+            sprite = data->m_sprites->sprites.item(index);
         return sprite;
     }
 
     ngx2::palette_t* get_palette(app_data_t* data, u32 index)
     {
         ngx2::palette_t* palette = nullptr;
-        if (data->m_palettes != nullptr && index < data->m_palettes->num_palettes)
-            palette = data->m_palettes->palettes.item<ngx2::palette_t>(index);
+        if (data->m_palettes != nullptr && index < data->m_palettes->palettes.size())
+            palette = data->m_palettes->palettes.item(index);
         return palette;
     }
 
     ngx2::font_t* get_font(app_data_t* data, u32 index)
     {
         ngx2::font_t* font = nullptr;
-        if (data->m_fonts != nullptr && index < data->m_fonts->num_fonts)
-            font = data->m_fonts->fonts.item<ngx2::font_t>(index);
+        if (data->m_fonts != nullptr && index < data->m_fonts->fonts.size())
+            font = data->m_fonts->fonts.item(index);
         return font;
     }
 

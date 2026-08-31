@@ -118,7 +118,7 @@ namespace ncore
                 // Possibly verify the integrity of the downloaded assets here (e.g., checksum, signature) before proceeding.
 
                 // Leave
-                state_data.m_next_state = (fsm_state_enum_t)(state_data.m_current_state + 1);  // Move to the next state in the FSM
+                to_state_next(state_data);
             }
         }
     }

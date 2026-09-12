@@ -1,6 +1,8 @@
 #include "rcore/c_app.h"
 #include "rcore/c_log.h"
 
+#include "gui/c_draw.h"
+
 #include "main/c_app_data.h"
 #include "main/c_script_host.h"
 
@@ -9,13 +11,14 @@
 
 namespace ncore
 {
-// extern(0) void ClearScreen(u32 color);
-// extern(1) void DrawSprite(u16 spriteId, u16 x, u16 y);
-// extern(1) void DrawSpriteScaled(u16 spriteId, u16 x, u16 y, u16 w, u16 h);
-// extern(2) void DrawText(u8 fontId, u8 fontSize, const u8* text, u16 x, u16 y, u32 color);
-// extern(3) void DrawDate(u8 fontId, u8 fontSize, u16 x, u16 y, u32 color);
-// extern(4) void DrawTime(u8 fontId, u8 fontSize, u16 x, u16 y, u32 color);
-// extern(5) void DrawValue(u8 fontId, u8 fontSize, i32 value, u8 unit, u16 x, u16 y, u32 color);
+    // extern(0) void ClearScreen(u32 color);
+    // extern(1) void DrawSprite(u16 spriteId, u16 x, u16 y);
+    // extern(1) void DrawSpriteScaled(u16 spriteId, u16 x, u16 y, u16 w, u16 h);
+    // extern(2) void DrawText(u8 fontId, u8 fontSize, const u8* text, u16 x, u16 y, u32 color);
+    // extern(3) void DrawDate(u8 fontId, u8 fontSize, u16 x, u16 y, u32 color);
+    // extern(4) void DrawTime(u8 fontId, u8 fontSize, u16 x, u16 y, u32 color);
+    // extern(5) void DrawValue(u8 fontId, u8 fontSize, i32 value, u8 unit, u16 x, u16 y, u32 color);
+
     enum extern_id_t
     {
         EXTERN_CLEAR_SCREEN = 0,
@@ -34,34 +37,83 @@ namespace ncore
         switch (import_id)
         {
             case EXTERN_CLEAR_SCREEN:
-                // Handle ClearScreen
+                {
+                    const u32 color = pop_bits32(vm, KindUint32);
+                    ngui::clear_screen(color);
+                }
                 break;
             case EXTERN_DRAW_SPRITE:
-                // Handle DrawSprite
+                {
+                    const u16 y = (u16)pop_bits32(vm, KindUint16);
+                    const u16 x = (u16)pop_bits32(vm, KindUint16);
+                    const u16 spriteId = (u16)pop_bits32(vm, KindUint16);
+                    ngui::draw_sprite(spriteId, x, y);
+                }
                 break;
             case EXTERN_DRAW_SPRITE_SCALED:
-                // Handle DrawSpriteScaled
+                {
+                    const u16 h = (u16)pop_bits32(vm, KindUint16);
+                    const u16 w = (u16)pop_bits32(vm, KindUint16);
+                    const u16 y = (u16)pop_bits32(vm, KindUint16);
+                    const u16 x = (u16)pop_bits32(vm, KindUint16);
+                    const u16 spriteId = (u16)pop_bits32(vm, KindUint16);
+                    ngui::draw_sprite_scaled(spriteId, x, y, w, h);
+                }
                 break;
             case EXTERN_DRAW_TEXT:
-                // Handle DrawText
+                {
+                    const u32 color = pop_bits32(vm, KindUint32);
+                    const u16 y = (u16)pop_bits32(vm, KindUint16);
+                    const u16 x = (u16)pop_bits32(vm, KindUint16);
+                    const u8* text = (const u8*)pop_bits32(vm, KindUint32);
+                    const u8 fontSize = (u8)pop_bits32(vm, KindUint8);
+                    const u8 fontId = (u8)pop_bits32(vm, KindUint8);
+                    ngui::draw_text(fontId, fontSize, text, x, y, color);
+                }
                 break;
             case EXTERN_DRAW_DATE:
-                // Handle DrawDate
+                {
+                    const u8 day_of_week = (u8)pop_bits32(vm, KindUint8);
+                    const u8 day = (u8)pop_bits32(vm, KindUint8);
+                    const u8 month = (u8)pop_bits32(vm, KindUint8);
+                    const u16 year = (u16)pop_bits32(vm, KindUint16);
+                    const u32 color = pop_bits32(vm, KindUint32);
+                    const u16 y = (u16)pop_bits32(vm, KindUint16);
+                    const u16 x = (u16)pop_bits32(vm, KindUint16);
+                    const u8 fontSize = (u8)pop_bits32(vm, KindUint8);
+                    const u8 fontId = (u8)pop_bits32(vm, KindUint8);
+                    ngui::draw_date(fontId, fontSize, x, y, color, year, month, day, day_of_week);
+                }
                 break;
             case EXTERN_DRAW_TIME:
-                // Handle DrawTime
+                {
+                    const u8 second = (u8)pop_bits32(vm, KindUint8);
+                    const u8 minute = (u8)pop_bits32(vm, KindUint8);
+                    const u8 hour = (u8)pop_bits32(vm, KindUint8);
+                    const u32 color = pop_bits32(vm, KindUint32);
+                    const u16 y = (u16)pop_bits32(vm, KindUint16);
+                    const u16 x = (u16)pop_bits32(vm, KindUint16);
+                    const u8 fontSize = (u8)pop_bits32(vm, KindUint8);
+                    const u8 fontId = (u8)pop_bits32(vm, KindUint8);
+                    ngui::draw_time(fontId, fontSize, x, y, color, hour, minute, second);
+                }
                 break;
             case EXTERN_DRAW_VALUE:
-                // Handle DrawValue
+                {
+                    const u32 color = pop_bits32(vm, KindUint32);
+                    const u16 y = (u16)pop_bits32(vm, KindUint16);
+                    const u16 x = (u16)pop_bits32(vm, KindUint16);
+                    const u8 unit = (u8)pop_bits32(vm, KindUint8);
+                    const i32 value = (i32)pop_bits32(vm, KindInt32);
+                    const u8 fontSize = (u8)pop_bits32(vm, KindUint8);
+                    const u8 fontId = (u8)pop_bits32(vm, KindUint8);
+                    ngui::draw_value(fontId, fontSize, value, unit, x, y, color);
+                }
                 break;
             default:
                 // Handle unknown import_id
                 break;
         }
-
-
-
     }
-
 
 }  // namespace ncore

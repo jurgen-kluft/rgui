@@ -2,6 +2,8 @@
 #include "ccore/c_printf.h"
 #include "rcore/c_system.h"
 
+#include "cgx2/c_types.h"
+
 #include "gui/c_draw.h"
 
 namespace ncore
@@ -31,6 +33,8 @@ namespace ncore
         {
             u16 x;              // X coordinate
             u16 y;              // Y coordinate
+            u16 w;              // Width on screen
+            u16 h;              // Height on screen
             u16 sprite_index;   // Index of the sprite in the asset database
             u16 palette_index;  // Index of the palette in the asset database
             u8  blend_alpha;    // Alpha value for blending (0-255)
@@ -43,6 +47,7 @@ namespace ncore
             u16 y;           // Y coordinate
             u16 color;       // Color of the text
             u8  font_index;  // Index of the font in the asset database
+            u8  size;        // Size of the text
             union
             {
                 const u8* text;  // Pointer to the text string to be drawn
@@ -68,6 +73,8 @@ namespace ncore
             u16 y;           // Y coordinate
             u16 color;       // Color of the value text
             u8  font_index;  // Index of the font in the asset database
+            u8  size;        // Size of the value text
+            u8  reserved;    // Reserved for future use
             u8  unit;        // Unit of the value (e.g., 0 for none, 1 for px, etc.)
             i32 value;       // Integer value to be drawn
         };
@@ -82,26 +89,28 @@ namespace ncore
 
         struct renderer_t
         {
-            volatile fb_state_t m_fb_state;
-            u16                 m_fb_width;
-            u16                 m_fb_height;
-            u16*                m_fb[2];
-            u16                 m_current_fb;
-            u16                 m_cmd_count;
-            u16*                m_sram_canvas;
-            u16                 m_sram_canvas_height;
-            u16                 m_sram_canvas_width;
-            i32                 m_strbuffer_size;
-            char*               m_strbuffer;
-            draw_cmd_t*         m_cmd_buffer;
-            draw_cmd_args_t*    m_cmd_args;
+            volatile fb_state_t  m_fb_state;
+            u16                  m_fb_width;
+            u16                  m_fb_height;
+            u16*                 m_fb[2];
+            u16                  m_current_fb;
+            u16                  m_cmd_count;
+            u16*                 m_sram_canvas;
+            u16                  m_sram_canvas_height;
+            u16                  m_sram_canvas_width;
+            i32                  m_strbuffer_size;
+            char*                m_strbuffer;
+            draw_cmd_t*          m_cmd_buffer;
+            draw_cmd_args_t*     m_cmd_args;
+            ngx2::sprite_pack_t* m_sprite_pack;
+            ngx2::font_pack_t*   m_font_pack;
         };
 
-        const static i32 g_max_cmd_count         = 256;     // Maximum number of draw commands per frame
+        const static i32 g_max_cmd_count = 256;  // Maximum number of draw commands per frame
 
         static renderer_t g_renderer;
 
-        void init_renderer(u16 fb_width, u16 fb_height, u16 sram_canvas_height)
+        void init_renderer(u16 fb_width, u16 fb_height, u16 sram_canvas_height, ngx2::sprite_pack_t* sprite_pack, ngx2::font_pack_t* font_pack)
         {
             g_renderer.m_fb_state           = FB_IDLE;
             g_renderer.m_fb_width           = fb_width;
@@ -119,7 +128,10 @@ namespace ncore
             g_renderer.m_cmd_args   = (draw_cmd_args_t*)nsystem::malloc(g_max_cmd_count * sizeof(draw_cmd_args_t));
 
             g_renderer.m_strbuffer_size = 128;
-            g_renderer.m_strbuffer = (char*)nsystem::malloc(g_renderer.mio_strbuffer_size);  // Buffer for multiple value strings representation
+            g_renderer.m_strbuffer      = (char*)nsystem::malloc(g_renderer.m_strbuffer_size);  // Buffer for multiple value strings representation
+
+            g_renderer.m_sprite_pack = sprite_pack;
+            g_renderer.m_font_pack   = font_pack;
         }
 
         void draw_begin_frame()
@@ -128,8 +140,7 @@ namespace ncore
 
             if (r.m_fb_state == FB_IDLE)
             {
-                r.m_cmd_count        = 0;
-                r.m_value_str_cursor = 0;  // Reset the cursor for the value string buffer
+                r.m_cmd_count = 0;
             }
         }
 
@@ -256,17 +267,44 @@ namespace ncore
 
         void draw_sprite(u16 spriteId, u16 x, u16 y)
         {
+            ngx2::sprite_t* sprite = ngx2::get_sprite(g_renderer.m_sprite_pack, (u32)spriteId);
+            if (!sprite)
+                return;
+
             g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                        = DRAW_CMD_SPRITE;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.sprite_index = spriteId;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.x            = x;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.y            = y;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.w            = sprite->width;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.h            = sprite->height;
+
             g_renderer.m_cmd_count++;
         }
 
-        void draw_text(u8 fontId, const u8* text, u16 x, u16 y, u32 color)
+        void draw_sprite_scaled(u16 spriteId, u16 x, u16 y, u16 w, u16 h)
         {
+            ngx2::sprite_t* sprite = ngx2::get_sprite(g_renderer.m_sprite_pack, (u32)spriteId);
+            if (!sprite)
+                return;
+
+            g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                        = DRAW_CMD_SPRITE;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.sprite_index = spriteId;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.x            = x;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.y            = y;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.w            = w;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.h            = h;
+            g_renderer.m_cmd_count++;
+        }
+
+        void draw_text(u8 fontId, u16 size, const u8* text, u16 x, u16 y, u32 color)
+        {
+            ngx2::font_t* font = ngx2::get_font(g_renderer.m_font_pack, (u32)fontId);
+            if (!font)
+                return;
+
             g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                    = DRAW_CMD_TEXT;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.font_index = fontId;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.size       = size;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.x          = x;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
@@ -274,10 +312,15 @@ namespace ncore
             g_renderer.m_cmd_count++;
         }
 
-        void draw_date(u8 fontId, u16 x, u16 y, u32 color, u16 year, u8 month, u8 day, u8 day_of_week)
+        void draw_date(u8 fontId, u16 size, u16 x, u16 y, u32 color, u16 year, u8 month, u8 day, u8 day_of_week)
         {
+            ngx2::font_t* font = ngx2::get_font(g_renderer.m_font_pack, (u32)fontId);
+            if (!font)
+                return;
+
             g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                    = DRAW_CMD_TEXT;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.font_index = fontId;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.size       = size;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.x          = x;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
@@ -290,10 +333,15 @@ namespace ncore
             g_renderer.m_cmd_count++;
         }
 
-        void draw_time(u8 fontId, u16 x, u16 y, u32 color, u8 hour, u8 minute, u8 second)
+        void draw_time(u8 fontId, u16 size, u16 x, u16 y, u32 color, u8 hour, u8 minute, u8 second)
         {
+            ngx2::font_t* font = ngx2::get_font(g_renderer.m_font_pack, (u32)fontId);
+            if (!font)
+                return;
+
             g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                    = DRAW_CMD_TEXT;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.font_index = fontId;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.size       = size;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.x          = x;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
@@ -305,10 +353,15 @@ namespace ncore
             g_renderer.m_cmd_count++;
         }
 
-        void draw_value(u8 fontId, i32 value, u8 unit, u16 x, u16 y, u32 color)
+        void draw_value(u8 fontId, u16 size, i32 value, u8 unit, u16 x, u16 y, u32 color)
         {
+            ngx2::font_t* font = ngx2::get_font(g_renderer.m_font_pack, (u32)fontId);
+            if (!font)
+                return;
+
             g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                     = DRAW_CMD_VALUE;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.font_index = fontId;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.size       = size;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.x          = x;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.y          = y;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.color      = color;

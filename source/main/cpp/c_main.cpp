@@ -33,7 +33,6 @@ namespace ncore
         {
             const u64 now_ms = ntimer::millis();
 
-            // State Machine handling
             if (gAppState.m_state_data.m_current_state > FSM_STATE_NONE && gAppState.m_state_data.m_current_state < FSM_STATE_COUNT)
             {
                 state_fn_t state_fn = gAppState.m_state_fn[gAppState.m_state_data.m_current_state];
@@ -42,11 +41,6 @@ namespace ncore
                     state_fn(gAppState.m_state_data, gAppState, now_ms);
                     handle_state_data(gAppState.m_state_data, gAppState);
                 }
-            }
-            else
-            {
-                // error 
-                return;
             }
             
         }

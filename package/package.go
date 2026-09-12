@@ -5,6 +5,7 @@ import (
 	cgx2 "github.com/jurgen-kluft/cgx2/package"
 	denv "github.com/jurgen-kluft/go-ide/denv"
 	rcore "github.com/jurgen-kluft/rcore/package"
+	rhome "github.com/jurgen-kluft/rhome/package"
 	rlcd "github.com/jurgen-kluft/rlcd/package"
 	rwifi "github.com/jurgen-kluft/rwifi/package"
 )
@@ -17,6 +18,7 @@ const (
 func GetPackage() *denv.Package {
 	// dependencies
 	corepkg := rcore.GetPackage()
+	homepkg := rhome.GetPackage()
 	wifipkg := rwifi.GetPackage()
 	lcdpkg := rlcd.GetPackage()
 	ccovapkg := ccova.GetPackage()
@@ -25,6 +27,7 @@ func GetPackage() *denv.Package {
 	// main package
 	mainpkg := denv.NewPackage(repo_path, repo_name)
 	mainpkg.AddPackage(corepkg)
+	mainpkg.AddPackage(homepkg)
 	mainpkg.AddPackage(wifipkg)
 	mainpkg.AddPackage(lcdpkg)
 	mainpkg.AddPackage(ccovapkg)
@@ -33,6 +36,7 @@ func GetPackage() *denv.Package {
 	// gui library
 	mainlib := denv.SetupCppLibrary(mainpkg, "gui", "gui")
 	mainlib.AddDependencies(corepkg.GetMainLib())
+	mainlib.AddDependencies(homepkg.GetMainLib())
 	mainlib.AddDependencies(wifipkg.GetMainLib())
 	mainlib.AddDependency(lcdpkg.GetLibrary("library_wcs"))
 	mainlib.AddDependencies(ccovapkg.GetMainLib())

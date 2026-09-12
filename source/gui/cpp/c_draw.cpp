@@ -2,13 +2,10 @@
 #include "ccore/c_printf.h"
 #include "rcore/c_system.h"
 
-#include "gui/c_asset_db.h"
 #include "gui/c_draw.h"
 
 namespace ncore
 {
-    home_state_t g_home_state;
-
     namespace ngui
     {
         enum fb_state_t
@@ -42,11 +39,27 @@ namespace ncore
 
         struct draw_text_args_t
         {
-            u16         x;           // X coordinate
-            u16         y;           // Y coordinate
-            u16         color;       // Color of the text
-            u16         font_index;  // Index of the font in the asset database
-            const char* text;        // Pointer to the text string to be drawn
+            u16 x;           // X coordinate
+            u16 y;           // Y coordinate
+            u16 color;       // Color of the text
+            u8  font_index;  // Index of the font in the asset database
+            union
+            {
+                const u8* text;  // Pointer to the text string to be drawn
+                struct
+                {
+                    u16 year;
+                    u8  month : 4;
+                    u8  day_of_week : 4;
+                    u8  day;
+                } date;
+                struct
+                {
+                    u8 hour;
+                    u8 minute;
+                    u8 second;
+                } time;
+            };
         };
 
         struct draw_value_args_t
@@ -78,14 +91,13 @@ namespace ncore
             u16*                m_sram_canvas;
             u16                 m_sram_canvas_height;
             u16                 m_sram_canvas_width;
-            i32                 m_value_str_cursor;
-            char*               m_value_str_buffer;
+            i32                 m_strbuffer_size;
+            char*               m_strbuffer;
             draw_cmd_t*         m_cmd_buffer;
             draw_cmd_args_t*    m_cmd_args;
         };
 
         const static i32 g_max_cmd_count         = 256;     // Maximum number of draw commands per frame
-        const static i32 g_value_str_buffer_size = 16 * 8;  // Buffer for multiple value strings representation
 
         static renderer_t g_renderer;
 
@@ -106,7 +118,8 @@ namespace ncore
             g_renderer.m_cmd_buffer = (draw_cmd_t*)nsystem::malloc(g_max_cmd_count * sizeof(draw_cmd_t));
             g_renderer.m_cmd_args   = (draw_cmd_args_t*)nsystem::malloc(g_max_cmd_count * sizeof(draw_cmd_args_t));
 
-            g_renderer.m_value_str_buffer = (char*)nsystem::malloc(g_value_str_buffer_size);  // Buffer for multiple value strings representation
+            g_renderer.m_strbuffer_size = 128;
+            g_renderer.m_strbuffer = (char*)nsystem::malloc(g_renderer.mio_strbuffer_size);  // Buffer for multiple value strings representation
         }
 
         void draw_begin_frame()
@@ -257,11 +270,11 @@ namespace ncore
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.x          = x;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.text       = (const char*)text;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.text       = text;
             g_renderer.m_cmd_count++;
         }
 
-        void draw_date(u8 fontId, u16 x, u16 y, u32 color)
+        void draw_date(u8 fontId, u16 x, u16 y, u32 color, u16 year, u8 month, u8 day, u8 day_of_week)
         {
             g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                    = DRAW_CMD_TEXT;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.font_index = fontId;
@@ -269,12 +282,15 @@ namespace ncore
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
 
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.text = g_home_state.m_data;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.date.year        = year;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.date.month       = month;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.date.day         = day;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.date.day_of_week = day_of_week;
 
             g_renderer.m_cmd_count++;
         }
 
-        void draw_time(u8 fontId, u16 x, u16 y, u32 color)
+        void draw_time(u8 fontId, u16 x, u16 y, u32 color, u8 hour, u8 minute, u8 second)
         {
             g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                    = DRAW_CMD_TEXT;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.font_index = fontId;
@@ -282,7 +298,9 @@ namespace ncore
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
 
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.text = g_home_state.m_time;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.time.hour   = hour;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.time.minute = minute;
+            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.time.second = second;
 
             g_renderer.m_cmd_count++;
         }
@@ -296,8 +314,6 @@ namespace ncore
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.color      = color;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.value      = value;
             g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.unit       = unit;
-
-            g_renderer.m_value_str_cursor += snprintf(g_renderer.m_value_str_buffer + g_renderer.m_value_str_cursor, g_value_str_buffer_size - g_renderer.m_value_str_cursor, "%d", value);
 
             g_renderer.m_cmd_count++;
         }

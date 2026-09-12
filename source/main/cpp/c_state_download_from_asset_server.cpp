@@ -1,5 +1,6 @@
 #include "rcore/c_app.h"
 #include "rcore/c_log.h"
+#include "rcore/c_system.h"
 
 #include "rwifi/c_tcp_client.h"
 #include "rwifi/c_tcp_client_plugins.h"
@@ -8,38 +9,72 @@
 
 namespace ncore
 {
-    void on_download_complete(void* on_complete_context, u32 data_type, u32 data_size, byte const* data_ptr)
+    enum edata_type_t
     {
-        app_data_t* app_data = (app_data_t*)on_complete_context;
+        DATA_TYPE_SCRIPT_BINARY = 0,
+        DATA_TYPE_SPRITE_PACK   = 1,
+        DATA_TYPE_FONT_PACK     = 2,
+        DATA_TYPE_PALETTE_PACK  = 3,
+    };
 
-        if (data_type == 0)
+    void on_download_begin(void* user_ctx, u32 data_type, u32 data_size, byte*& data_ptr)
+    {
+        data_ptr = nullptr;
+        
+        if (data_type == DATA_TYPE_SCRIPT_BINARY)
+        {
+            // Store the downloaded script binary in SRAM
+            data_ptr = (byte*)nsystem::malloc(data_size);
+        }
+        else if (data_type == DATA_TYPE_SPRITE_PACK)
+        {
+            // Store the downloaded sprite pack in PSRAM
+            data_ptr = nsystem::alloc_psram_aligned(data_size, 32);
+        }
+        else if (data_type == DATA_TYPE_FONT_PACK)
+        {
+            // Store the downloaded font pack in PSRAM
+            data_ptr = nsystem::alloc_psram_aligned(data_size, 32);
+        }
+        else if (data_type == DATA_TYPE_PALETTE_PACK)
+        {
+            // Store the downloaded palette pack in PSRAM
+            data_ptr = nsystem::alloc_psram_aligned(data_size, 32);
+        }
+    }
+
+    void on_download_complete(void* user_ctx, u32 data_type, u32 data_size, byte const* data_ptr)
+    {
+        app_data_t* app_data = (app_data_t*)user_ctx;
+
+        if (data_type == DATA_TYPE_SCRIPT_BINARY)
         {
             // Store the downloaded script binary in PSRAM
             app_data->m_script_binary      = (void*)data_ptr;
             app_data->m_script_binary_size = data_size;
         }
-        else if (data_type == 1)
+        else if (data_type == DATA_TYPE_SPRITE_PACK)
         {
             // Store the downloaded sprite pack in PSRAM
             app_data->m_sprites = (ngx2::sprite_pack_t*)data_ptr;
         }
-        else if (data_type == 2)
+        else if (data_type == DATA_TYPE_FONT_PACK)
         {
             // Store the downloaded font pack in PSRAM
             app_data->m_fonts = (ngx2::font_pack_t*)data_ptr;
         }
-        else if (data_type == 3)
+        else if (data_type == DATA_TYPE_PALETTE_PACK)
         {
             // Store the downloaded palette pack in PSRAM
             app_data->m_palettes = (ngx2::palette_pack_t*)data_ptr;
         }
     }
 
-    static void on_handshake_complete(void* on_complete_context, u32 data_type, u32 data_size, byte const* data_ptr)
+    static void on_handshake_complete(void* user_ctx, u32 data_type, u32 data_size, byte const* data_ptr)
     {
-        app_data_t* app_data = (app_data_t*)on_complete_context;
+        app_data_t* app_data = (app_data_t*)user_ctx;
 
-        if (data_type == 1)
+        if (data_type == DATA_TYPE_SCRIPT_BINARY)
         {
             // After the handshake is complete, we can start downloading the assets from the asset server.
             // We will use the download plugin to handle the downloading of the assets.
@@ -72,7 +107,7 @@ namespace ncore
             // Create the tcp client plugins for handshake and downloading, and register them.
             // Also set our download complete callback
             nnet::tcp_recv_plugin_t* handshake_plugin = nnet::new_handshake_plugin(on_handshake_complete, &app_data);
-            nnet::tcp_recv_plugin_t* download_plugin  = nnet::new_download_plugin(on_download_complete, &app_data);
+            nnet::tcp_recv_plugin_t* download_plugin  = nnet::new_download_plugin(on_download_begin, on_download_complete, &app_data);
 
             // Register the necessary plugins with the TCP client
             nnet::register_plugin(app_data.m_tcpclient_asset_server, handshake_plugin);

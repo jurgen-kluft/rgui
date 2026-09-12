@@ -22,12 +22,14 @@
 ## ESP32
 
 - Script language
-  - host binding functions need to be written
+  - TODO host binding functions need to be written
 - WiFi downloading (need to refactor a bit to receive AssetDb and Script)
-  - Receive AssetDb in PSRAM
+  - Receive Sprite Pack in PSRAM
+  - Receive Font Pack in PSRAM
   - Receive Script in SRAM
 - Rendering
   - Draw sprite needs to accept blend alpha
+  - Draw sprite with scaling support
   - Need to build command buffer from draw calls
   - Need to render frame-buffer from command buffer
   - Need to finalize double buffered rendering

@@ -92,7 +92,7 @@ namespace ncore
         ngx2::sprite_pack_t*  m_sprites;             // pointer to the array of assets in PSRAM
         ngx2::font_pack_t*    m_fonts;               // pointer to the array of fonts in PSRAM
         ngx2::palette_pack_t* m_palettes;            // pointer to the array of palettes in PSRAM
-        void*                 m_script_binary;       // pointer to the script binary in PSRAM
+        byte*                 m_script_binary;       // pointer to the script binary in PSRAM
         u32                   m_script_binary_size;  // size of the script binary in bytes
 
         fsm_state_data_t m_state_data;                 // Current state call type (enter, update, leave)
@@ -102,6 +102,7 @@ namespace ncore
     void init_app_data(app_data_t& app_data);
 
     void update_touch(app_data_t& data, u64 now_ms);
+    void update_script(app_data_t& data, u64 now_ms);
 
 }  // namespace ncore
 

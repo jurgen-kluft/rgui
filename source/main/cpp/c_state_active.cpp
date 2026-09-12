@@ -16,7 +16,7 @@ namespace ncore
         //   - update the home state with the newly obtained sensor data
         // - tick the TCP clients for server communication
         // - update any host data, like timers for the script VM
-        // - run the script VM to update the application state
+        // - update the script VM to update the application state
         // - draw the GUI to the screen
         //   - note: the script has called the GUI draw functions which where written to
         //     a command buffer, so we just need to flush the command buffer to the screen.

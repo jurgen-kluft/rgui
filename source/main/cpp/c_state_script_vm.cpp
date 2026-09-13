@@ -9,6 +9,7 @@
 #include "ccova/segment_memory.h"
 
 #include "main/c_app_data.h"
+#include "main/c_script_host.h"
 
 namespace ncore
 {
@@ -25,14 +26,13 @@ namespace ncore
     };
     static app_vm_t s_app_vm;
 
-    void state_initialize_script_vm(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms)
+    void state_initialize_script_vm(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
         app_vm_t* app_vm = &s_app_vm;
 
-        app_vm->linked_program = open_program_image(app_data.m_script_binary, app_data.m_script_binary_size);
+        app_vm->linked_program = open_program_image((byte*)app_data->m_script_binary, app_data->m_script_binary_size);
 
-        // allocate the script VM memory regions
-
+        // Allocate the script VM memory regions
         // CALL FRAMES
         const u32 call_frame_capacity = 16;
         void*     call_frames_memory  = nsystem::malloc(call_frame_capacity * sizeof(call_frame_t));
@@ -43,7 +43,6 @@ namespace ncore
         // BSS
         const u32 bss_byte_size = math::alignUp(app_vm->linked_program->m_bss_byte_size, 32);
         void*     bss_memory    = nsystem::malloc(bss_byte_size);
-
         // DATA
         const u32 data_data_size = math::alignUp(app_vm->linked_program->m_data_data.m_size, 32);
         void*     data_memory    = nsystem::malloc(data_data_size);
@@ -65,8 +64,9 @@ namespace ncore
         app_vm->m_stack.m_size     = 0;
 
         initialize_vm(&app_vm->m_vm, app_vm->m_call_frames, call_frame_capacity, app_vm->m_frame, app_vm->m_bss, app_vm->m_external, app_vm->m_data, app_vm->m_stack);
+        register_extern_dispatcher(&app_vm->m_vm, app_data, extern_host_fn);
 
-        to_state_next(app_data.m_state_data);
+        to_state_next(&app_data->m_state_data);
     }
 
     void update_script(app_data_t& app_data, u64 now_ms) 

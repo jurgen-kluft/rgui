@@ -25,78 +25,68 @@
 
 namespace ncore
 {
-    void init_app_data(app_data_t& app_data)
+    void init_app_data(app_data_t* app_data)
     {
-        g_memclr(&app_data, sizeof(app_data_t));
+        g_memclr(app_data, sizeof(app_data_t));
 
-        app_data.m_random.reset(0x1234567890abcdef);  // Initialize the random number generator with a fixed seed for reproducibility
+        app_data->m_random.reset(0x1234567890abcdef);  // Initialize the random number generator with a fixed seed for reproducibility
 
         ntouch::gesture_config_t gesture_config;
-        ntouch::init_touch_gesture(app_data.m_touch_gesture, gesture_config);
+        ntouch::init_touch_gesture(app_data->m_touch_gesture, gesture_config);
 
-        nnet::init_wifi_config(app_data.m_wifi_config, WIFI_SSID(), WIFI_PASSWORD(), 1000, 16000, 2.0f, 0.1f);
-        nnet::setup_default(&app_data.m_tcpclient_config);
+        nnet::init_wifi_config(app_data->m_wifi_config, WIFI_SSID(), WIFI_PASSWORD(), 1000, 16000, 2.0f, 0.1f);
+        nnet::setup_default(&app_data->m_tcpclient_config);
 
-        app_data.m_state_data.m_state_data     = 0;
-        app_data.m_state_data.m_current_state  = FSM_STATE_CONNECT_TO_WIFI;
-        app_data.m_state_data.m_previous_state = FSM_STATE_NONE;
-        app_data.m_state_data.m_next_state     = FSM_STATE_NONE;
+        // The sizes are kept zero, to indicate that no data is currently stored in the allocated memory blocks.
+        app_data->m_sprite_pack_capacity   = 5 * cMB;    // capacity of allocated sprite pack memory
+        app_data->m_font_pack_capacity     = 256 * cKB;  // capacity of allocated font pack memory
+        app_data->m_palette_pack_capacity  = 64 * cKB;   // capacity of allocated palette pack memory
+        app_data->m_script_binary_capacity = 64 * cKB;   // capacity of allocated script binary memory
+        app_data->m_sprite_pack            = (ngx2::sprite_pack_t*)nsystem::alloc_psram_aligned(app_data->m_sprite_pack_capacity, 32);
+        app_data->m_font_pack              = (ngx2::font_pack_t*)nsystem::alloc_psram_aligned(app_data->m_font_pack_capacity, 32);
+        app_data->m_palette_pack           = (ngx2::palette_pack_t*)nsystem::alloc_psram_aligned(app_data->m_palette_pack_capacity, 32);
+        app_data->m_script_binary          = (linked_program_t*)nsystem::malloc(app_data->m_script_binary_capacity);
 
-        app_data.m_state_fn[FSM_STATE_CONNECT_TO_WIFI]            = state_connect_to_wifi;
-        app_data.m_state_fn[FSM_STATE_DOWNLOAD_FROM_ASSET_SERVER] = state_download_from_asset_server;
-        app_data.m_state_fn[FSM_STATE_CONNECT_TO_SENSOR_SERVER]   = state_connect_to_sensor_server;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_SENSORS]         = state_initialize_sensors;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_DISPLAY]         = state_initialize_display;
-        app_data.m_state_fn[FSM_STATE_SHOW_SPLASH_SCREEN]         = state_show_splash_screen;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_TOUCH]           = state_initialize_touch;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_SDCARD]          = state_initialize_sdcard;
-        app_data.m_state_fn[FSM_STATE_INITIALIZE_SCRIPT_VM]       = state_initialize_script_vm;
-        app_data.m_state_fn[FSM_STATE_ACTIVE]                     = state_active;
-        app_data.m_state_fn[FSM_STATE_ERROR]                      = state_error;
+        fsm_state_data_t* state_data = &app_data->m_state_data;
+        state_data->m_state_data     = 0;
+        state_data->m_current_state  = FSM_STATE_CONNECT_TO_WIFI;
+        state_data->m_previous_state = FSM_STATE_NONE;
+        state_data->m_next_state     = FSM_STATE_NONE;
+
+        app_data->m_state_fn[FSM_STATE_CONNECT_TO_WIFI]      = state_connect_to_wifi;
+        app_data->m_state_fn[FSM_STATE_HANDLE_LITTLE_FS]     = state_handle_little_fs;
+        app_data->m_state_fn[FSM_STATE_HANDLE_SD_CARD]       = state_handle_sd_card;
+        app_data->m_state_fn[FSM_STATE_DOWNLOAD_ASSETS]      = state_download_assets;
+        app_data->m_state_fn[FSM_STATE_VERIFY_ASSETS]        = state_verify_assets;
+        app_data->m_state_fn[FSM_STATE_HANDLE_SENSOR_SERVER] = state_handle_sensor_server;
+        app_data->m_state_fn[FSM_STATE_INITIALIZE_SENSORS]   = state_initialize_sensors;
+        app_data->m_state_fn[FSM_STATE_INITIALIZE_DISPLAY]   = state_initialize_display;
+        app_data->m_state_fn[FSM_STATE_SHOW_SPLASH_SCREEN]   = state_show_splash_screen;
+        app_data->m_state_fn[FSM_STATE_INITIALIZE_TOUCH]     = state_initialize_touch;
+        app_data->m_state_fn[FSM_STATE_INITIALIZE_SCRIPT_VM] = state_initialize_script_vm;
+        app_data->m_state_fn[FSM_STATE_ACTIVE]               = state_active;
+        app_data->m_state_fn[FSM_STATE_ERROR]                = state_error;
     }
 
-    ngx2::sprite_t* get_sprite(app_data_t* data, u32 index)
-    {
-        ngx2::sprite_t* sprite = nullptr;
-        if (data->m_sprites != nullptr && index < data->m_sprites->sprites.size())
-            sprite = data->m_sprites->sprites.item(index);
-        return sprite;
-    }
-
-    ngx2::palette_t* get_palette(app_data_t* data, u32 index)
-    {
-        ngx2::palette_t* palette = nullptr;
-        if (data->m_palettes != nullptr && index < data->m_palettes->palettes.size())
-            palette = data->m_palettes->palettes.item(index);
-        return palette;
-    }
-
-    ngx2::font_t* get_font(app_data_t* data, u32 index)
-    {
-        ngx2::font_t* font = nullptr;
-        if (data->m_fonts != nullptr && index < data->m_fonts->fonts.size())
-            font = data->m_fonts->fonts.item(index);
-        return font;
-    }
-
-    bool get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size)
+    bool get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size, u32& script_memory_capacity)
     {
         if (data != nullptr)
         {
-            script_binary      = data->m_script_binary;
-            script_binary_size = data->m_script_binary_size;
+            script_binary          = data->m_script_binary;
+            script_binary_size     = data->m_script_binary_size;
+            script_memory_capacity = data->m_script_binary_capacity;
         }
         return script_binary != nullptr && script_binary_size > 0;
     }
 
-    void handle_state_data(fsm_state_data_t& state_data, app_data_t& app_data)
+    void handle_state_data(fsm_state_data_t* state_data, app_data_t* app_data)
     {
-        if (state_data.m_next_state != FSM_STATE_NONE)
+        if (state_data->m_next_state != FSM_STATE_NONE)
         {
-            state_data.m_previous_state = state_data.m_current_state;
-            state_data.m_current_state  = state_data.m_next_state;
-            state_data.m_next_state     = FSM_STATE_NONE;
-            state_data.m_state_data     = 0;
+            state_data->m_previous_state = state_data->m_current_state;
+            state_data->m_current_state  = state_data->m_next_state;
+            state_data->m_next_state     = FSM_STATE_NONE;
+            state_data->m_state_data     = 0;
         }
     }
 

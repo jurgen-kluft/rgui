@@ -10,9 +10,9 @@
 
 namespace ncore
 {
-    void state_initialize_touch(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms)
+    void state_initialize_touch(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
-        if (state_data.m_state_data == 0)
+        if (state_data->m_state_data == 0)
         {
             nlog::println("Initialize Touch - Begin");
 
@@ -27,14 +27,14 @@ namespace ncore
             const u16 width  = nlcd::width();
             const u16 height = nlcd::height();
 
-            if (ntouch::ngt911::touch_init(app_data.m_touch, width, height, 50, i2c_addr, sda_pin, scl_pin, int_pin, rst_pin, rotate, mirror) == false)
+            if (ntouch::ngt911::touch_init(app_data->m_touch, width, height, 50, i2c_addr, sda_pin, scl_pin, int_pin, rst_pin, rotate, mirror) == false)
             {
                 nlog::println("Initialize Touch - Failed to initialize touch panel");
                 to_state_error(state_data);
                 return;
             }
 
-            ntouch::init_touch_gesture(app_data.m_touch_gesture, ntouch::gesture_config_t());
+            ntouch::init_touch_gesture(app_data->m_touch_gesture, ntouch::gesture_config_t());
 
             // Leave
             to_state_next(state_data);

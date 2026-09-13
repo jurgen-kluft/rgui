@@ -1,6 +1,8 @@
 #include "rcore/c_app.h"
 #include "rcore/c_log.h"
 
+#include "rhome/c_home.h"
+
 #include "gui/c_draw.h"
 
 #include "main/c_app_data.h"
@@ -32,7 +34,7 @@ namespace ncore
 
     void extern_host_fn(void* host_context, vm_t* vm, u32 import_id)
     {
-        app_data_t* app = (app_data_t*)host_context;
+        app_data_t* app_data = (app_data_t*)host_context;
 
         switch (import_id)
         {
@@ -52,61 +54,63 @@ namespace ncore
                 break;
             case EXTERN_DRAW_SPRITE_SCALED:
                 {
-                    const u16 h = (u16)pop_bits32(vm, KindUint16);
-                    const u16 w = (u16)pop_bits32(vm, KindUint16);
-                    const u16 y = (u16)pop_bits32(vm, KindUint16);
-                    const u16 x = (u16)pop_bits32(vm, KindUint16);
-                    const u16 spriteId = (u16)pop_bits32(vm, KindUint16);
+                    const u16 h = pop_u16(vm);
+                    const u16 w = pop_u16(vm);
+                    const u16 y = pop_u16(vm);
+                    const u16 x = pop_u16(vm);
+                    const u16 spriteId = pop_u16(vm);
                     ngui::draw_sprite_scaled(spriteId, x, y, w, h);
                 }
                 break;
             case EXTERN_DRAW_TEXT:
                 {
-                    const u32 color = pop_bits32(vm, KindUint32);
-                    const u16 y = (u16)pop_bits32(vm, KindUint16);
-                    const u16 x = (u16)pop_bits32(vm, KindUint16);
-                    const u8* text = (const u8*)pop_bits32(vm, KindUint32);
-                    const u8 fontSize = (u8)pop_bits32(vm, KindUint8);
-                    const u8 fontId = (u8)pop_bits32(vm, KindUint8);
+                    const u32 color = pop_u32(vm);
+                    const u16 y = pop_u16(vm);
+                    const u16 x = pop_u16(vm);
+                    const u8 fontSize = pop_u8(vm);
+                    const u8 fontId = pop_u8(vm);
+                    const u8* text = pop_data_pointer<u8>(vm);
                     ngui::draw_text(fontId, fontSize, text, x, y, color);
                 }
                 break;
             case EXTERN_DRAW_DATE:
                 {
-                    const u8 day_of_week = (u8)pop_bits32(vm, KindUint8);
-                    const u8 day = (u8)pop_bits32(vm, KindUint8);
-                    const u8 month = (u8)pop_bits32(vm, KindUint8);
-                    const u16 year = (u16)pop_bits32(vm, KindUint16);
-                    const u32 color = pop_bits32(vm, KindUint32);
-                    const u16 y = (u16)pop_bits32(vm, KindUint16);
-                    const u16 x = (u16)pop_bits32(vm, KindUint16);
-                    const u8 fontSize = (u8)pop_bits32(vm, KindUint8);
-                    const u8 fontId = (u8)pop_bits32(vm, KindUint8);
+                    const u16 year = get_year(app_data->m_house);
+                    const u8 month = get_month(app_data->m_house);
+                    const u8 day = get_day(app_data->m_house);
+                    const u8 day_of_week = get_day_of_week(app_data->m_house);
+    
+                    const u32 color = pop_u32(vm);
+                    const u16 y = pop_u16(vm);
+                    const u16 x = pop_u16(vm);
+                    const u8 fontSize = pop_u8(vm);
+                    const u8 fontId = pop_u8(vm);
                     ngui::draw_date(fontId, fontSize, x, y, color, year, month, day, day_of_week);
                 }
                 break;
             case EXTERN_DRAW_TIME:
                 {
-                    const u8 second = (u8)pop_bits32(vm, KindUint8);
-                    const u8 minute = (u8)pop_bits32(vm, KindUint8);
-                    const u8 hour = (u8)pop_bits32(vm, KindUint8);
-                    const u32 color = pop_bits32(vm, KindUint32);
-                    const u16 y = (u16)pop_bits32(vm, KindUint16);
-                    const u16 x = (u16)pop_bits32(vm, KindUint16);
-                    const u8 fontSize = (u8)pop_bits32(vm, KindUint8);
-                    const u8 fontId = (u8)pop_bits32(vm, KindUint8);
+                    const u8 hour = get_hour(app_data->m_house);
+                    const u8 minute = get_minute(app_data->m_house);
+                    const u8 second = get_second(app_data->m_house);
+
+                    const u32 color = pop_u32(vm);
+                    const u16 y = pop_u16(vm);
+                    const u16 x = pop_u16(vm);
+                    const u8 fontSize = pop_u8(vm);
+                    const u8 fontId = pop_u8(vm);
                     ngui::draw_time(fontId, fontSize, x, y, color, hour, minute, second);
                 }
                 break;
             case EXTERN_DRAW_VALUE:
                 {
-                    const u32 color = pop_bits32(vm, KindUint32);
-                    const u16 y = (u16)pop_bits32(vm, KindUint16);
-                    const u16 x = (u16)pop_bits32(vm, KindUint16);
-                    const u8 unit = (u8)pop_bits32(vm, KindUint8);
-                    const i32 value = (i32)pop_bits32(vm, KindInt32);
-                    const u8 fontSize = (u8)pop_bits32(vm, KindUint8);
-                    const u8 fontId = (u8)pop_bits32(vm, KindUint8);
+                    const u32 color = pop_u32(vm);
+                    const u16 y = pop_u16(vm);
+                    const u16 x = pop_u16(vm);
+                    const u8 unit = pop_u8(vm);
+                    const i32 value = pop_i32(vm);
+                    const u8 fontSize = pop_u8(vm);
+                    const u8 fontId = pop_u8(vm);
                     ngui::draw_value(fontId, fontSize, value, unit, x, y, color);
                 }
                 break;

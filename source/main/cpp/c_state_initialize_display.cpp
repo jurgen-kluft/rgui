@@ -8,9 +8,9 @@
 
 namespace ncore
 {
-    void state_initialize_display(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms)
+    void state_initialize_display(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
-        if (state_data.m_current_state == 0)
+        if (state_data->m_current_state == 0)
         {
             nlog::println("Initialize Display - Begin");
 

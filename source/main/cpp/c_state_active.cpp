@@ -5,7 +5,7 @@
 
 namespace ncore
 {
-    void state_active(fsm_state_data_t& state_data, app_data_t& app_data, u64 now_ms)
+    void state_active(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
         // This is the main state, this is where we:
         // - fade-out the splash screen until black (move the separate state ?)

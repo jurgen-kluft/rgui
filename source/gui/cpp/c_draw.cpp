@@ -154,6 +154,10 @@ namespace ncore
                 return;
             }
 
+            // TODO
+            // We could double buffer the commands, and when a frame is done compare it to 
+            // the previous frame, if nothing has changed, we could skip rendering entirely.
+
             const i16 num_slices = (r.m_fb_height + r.m_sram_canvas_height - 1) / r.m_sram_canvas_height;
             for (i16 i = 0; i < num_slices; i++)
             {

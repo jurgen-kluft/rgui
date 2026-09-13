@@ -26,7 +26,7 @@ namespace ncore
         void setup(state_t* state)
         {
             // Initialize application data
-            init_app_data(gAppState);
+            init_app_data(&gAppState);
         }
 
         void tick(state_t* state)
@@ -38,8 +38,8 @@ namespace ncore
                 state_fn_t state_fn = gAppState.m_state_fn[gAppState.m_state_data.m_current_state];
                 if (state_fn)
                 {
-                    state_fn(gAppState.m_state_data, gAppState, now_ms);
-                    handle_state_data(gAppState.m_state_data, gAppState);
+                    state_fn(&gAppState.m_state_data, &gAppState, now_ms);
+                    handle_state_data(&gAppState.m_state_data, &gAppState);
                 }
             }
             

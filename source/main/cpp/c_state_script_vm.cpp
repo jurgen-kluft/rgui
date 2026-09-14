@@ -33,10 +33,6 @@ namespace ncore
         app_vm->linked_program = open_program_image((byte*)app_data->m_script_binary, app_data->m_script_binary_size);
 
         // Allocate the script VM memory regions
-        // CALL FRAMES
-        const u32 call_frame_capacity = 16;
-        void*     call_frames_memory  = nsystem::malloc(call_frame_capacity * sizeof(call_frame_t));
-        app_vm->m_call_frames       = (call_frame_t*)call_frames_memory;
         // STACK
         const u32 stack_byte_size = 256;
         void*     stack_memory    = nsystem::malloc(stack_byte_size);
@@ -46,6 +42,10 @@ namespace ncore
         // DATA
         const u32 data_data_size = math::alignUp(app_vm->linked_program->m_data_data.m_size, 32);
         void*     data_memory    = nsystem::malloc(data_data_size);
+        // CALL FRAMES
+        const u32 call_frame_capacity = 16;
+        void*     call_frames_memory  = nsystem::malloc(call_frame_capacity * sizeof(call_frame_t));
+        app_vm->m_call_frames       = (call_frame_t*)call_frames_memory;
         // FRAME
         const u32 frame_byte_size = math::alignUp(app_vm->linked_program->m_frame_byte_size, 32);
         void*     frame_memory    = nsystem::malloc(frame_byte_size);

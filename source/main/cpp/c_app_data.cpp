@@ -38,10 +38,10 @@ namespace ncore
         nnet::setup_default(&app_data->m_tcpclient_config);
 
         // The sizes are kept zero, to indicate that no data is currently stored in the allocated memory blocks.
-        app_data->m_sprite_pack_capacity   = 5 * cMB;    // capacity of allocated sprite pack memory
-        app_data->m_font_pack_capacity     = 256 * cKB;  // capacity of allocated font pack memory
-        app_data->m_palette_pack_capacity  = 64 * cKB;   // capacity of allocated palette pack memory
-        app_data->m_script_binary_capacity = 64 * cKB;   // capacity of allocated script binary memory
+        app_data->m_sprite_pack_capacity   = 5 * cMB;    // PSRAM capacity of allocated sprite pack memory
+        app_data->m_font_pack_capacity     = 256 * cKB;  // PSRAM capacity of allocated font pack memory
+        app_data->m_palette_pack_capacity  = 8 * cKB;    // SRAM capacity of allocated palette pack memory
+        app_data->m_script_binary_capacity = 32 * cKB;   // SRAM capacity of allocated script binary memory
         app_data->m_sprite_pack            = (ngx2::sprite_pack_t*)nsystem::alloc_psram_aligned(app_data->m_sprite_pack_capacity, 32);
         app_data->m_font_pack              = (ngx2::font_pack_t*)nsystem::alloc_psram_aligned(app_data->m_font_pack_capacity, 32);
         app_data->m_palette_pack           = (ngx2::palette_pack_t*)nsystem::alloc_psram_aligned(app_data->m_palette_pack_capacity, 32);

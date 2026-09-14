@@ -21,10 +21,11 @@ namespace ncore
         void draw_begin_frame();
         void draw_end_frame();
 
-        void clear_screen(u32 color);
+        void clear_background(u32 color);
+        void draw_background(u16 spriteId);
 
         void draw_sprite(u16 spriteId, u16 x, u16 y);
-        void draw_sprite_scaled(u16 spriteId, u16 x, u16 y, u16 w, u16 h);
+        void draw_sprite(u16 spriteId, u16 x, u16 y, u16 w, u16 h);
 
         void draw_text(u8 fontId, u16 size, const u8* text, u16 x, u16 y, u32 color);
         void draw_date(u8 fontId, u16 size, u16 x, u16 y, u32 color, u16 year, u8 month, u8 day, u8 day_of_week);

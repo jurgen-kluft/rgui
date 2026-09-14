@@ -22,14 +22,17 @@
 ## ESP32
 
 - Script language
-  - TODO host binding functions need to be written
-- WiFi downloading (need to refactor a bit to receive AssetDb and Script)
-  - Receive Sprite Pack in PSRAM
-  - Receive Font Pack in PSRAM
-  - Receive Script in SRAM
+  - [WIP] host binding functions need to be written
+- TCP client download plugin
+  - [WIP] Receive Sprite Pack in PSRAM   (Max size:  4 MB)
+  - [WIP] Receive Font Pack in SRAM?     (Max size: 64 kB)
+  - [WIP] Receive Palette Pack in SRAM?  (Max size:  8 kB)
+  - [WIP] Receive Script in SRAM?        (Max size: 64 kB)
 - Rendering
-  - Draw sprite needs to accept blend alpha
   - Draw sprite with scaling support
-  - Need to build command buffer from draw calls
-  - Need to render frame-buffer from command buffer
-  - Need to finalize double buffered rendering
+  - 2 Command buffers for double buffered rendering in SRAM (Max size: 2*8 kB = 16 kB)
+  - Build command buffer from draw calls
+  - Compare command buffers and only execute when different from last frame or if
+    frame buffer has been changed by other means.
+  - Update frame-buffer by executing the command buffer
+  - Swap command-buffers 

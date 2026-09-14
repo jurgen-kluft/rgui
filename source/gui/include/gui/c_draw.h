@@ -11,11 +11,12 @@ namespace ncore
     {
         struct sprite_pack_t;
         struct font_pack_t;
+        struct palette_pack_t;
     }  // namespace ngx2
 
     namespace ngui
     {
-        void init_renderer(u16 fb_width, u16 fb_height, u16 sram_canvas_height, ngx2::sprite_pack_t* sprite_pack, ngx2::font_pack_t* font_pack);
+        void init_renderer(u16 fb_width, u16 fb_height, u16 sram_canvas_height, ngx2::sprite_pack_t* sprite_pack, ngx2::font_pack_t* font_pack, ngx2::palette_pack_t* palette_pack);
 
         void draw_begin_frame();
         void draw_end_frame();

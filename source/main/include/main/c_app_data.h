@@ -24,6 +24,15 @@ namespace ncore
     struct app_data_t;
     struct linked_program_t;
 
+    enum edata_type_t
+    {
+        DATA_TYPE_SCRIPT_BINARY = 0,
+        DATA_TYPE_SPRITE_PACK   = 1,
+        DATA_TYPE_FONT_PACK     = 2,
+        DATA_TYPE_PALETTE_PACK  = 3,
+        DATA_TYPE_HOUSE_META    = 4,
+    };
+
     enum fsm_state_enum_t
     {
         FSM_STATE_NONE = 0,              // No state, initial state before any initialization
@@ -101,9 +110,9 @@ namespace ncore
         nnet::wifi_manager_t m_wifi_manager;  // WiFi manager for network connectivity
         nnet::wifi_config_t  m_wifi_config;   // WiFi configuration
 
-        nnet::config_t     m_tcpclient_config;         // TCP client configuration (shared)
-        nnet::tcp_client_t m_tcpclient_asset_server;   // TCP client for server communication
-        nnet::tcp_client_t m_tcpclient_sensor_server;  // TCP client for server communication
+        nnet::config_t     m_tcp_client_config;  // TCP client configuration (shared)
+        void*              m_tcp_socket;         // TCP socket
+        nnet::tcp_client_t m_tcp_client;         // TCP client for server communication
 
         edata_source_t        m_sprite_pack_source;      // Source of the sprite pack data (e.g., LITTLE_FS, SD_CARD, ASSET_SERVER)
         u32                   m_sprite_pack_size;        // size of the sprite pack in bytes

@@ -16,14 +16,6 @@
 
 namespace ncore
 {
-    enum edata_type_t
-    {
-        DATA_TYPE_SCRIPT_BINARY = 0,
-        DATA_TYPE_SPRITE_PACK   = 1,
-        DATA_TYPE_FONT_PACK     = 2,
-        DATA_TYPE_PALETTE_PACK  = 3,
-    };
-
     void on_download_begin(void* user_ctx, u32 data_type, u32 data_size, byte*& data_ptr)
     {
         data_ptr = nullptr;
@@ -77,14 +69,6 @@ namespace ncore
         }
     }
 
-    enum easset_type
-    {
-        DATA_TYPE_SCRIPT_BINARY = 0,
-        DATA_TYPE_SPRITE_PACK,
-        DATA_TYPE_FONT_PACK,
-        DATA_TYPE_PALETTE_PACK,
-    };
-
 #define MSG_TYPE_ASSET_SERVER_REQUEST 0x20
 
     struct asset_server_request_t : public nnet::msg_hdr_t
@@ -124,9 +108,9 @@ namespace ncore
             payload[6]   = DATA_TYPE_PALETTE_PACK;
             payload[7]   = palette_pack_version;
 
-            nnet::send_later(app_data->m_tcpclient_asset_server, (byte*)assets_msg, sizeof(asset_server_request_t) + assets_msg->PayloadSize);
+            nnet::send_later(app_data->m_tcp_client, (byte*)assets_msg, sizeof(asset_server_request_t) + assets_msg->PayloadSize);
 
-            // After the handshake is complete, and we have sent our asset request, we 
+            // After the handshake is complete, and we have sent our asset request, we
             // start downloading assets from the asset server.
             // We will use the download plugin to handle the downloading of the assets.
             // An asset that is already up-to-date as a message will contain no payload but
@@ -154,8 +138,8 @@ namespace ncore
     {
         if (state_data->m_state_data == ASSET_SERVER_STATE_SETUP)
         {
-            void* tcp_socket = nnet::setup_default(&app_data->m_tcpclient_config);
-            nnet::setup(app_data->m_tcpclient_asset_server, &app_data->m_tcpclient_config, tcp_socket, ASSET_SERVER_IP(), ASSET_SERVER_TCPPORT());
+            app_data->m_tcp_socket = nnet::setup_default(&app_data->m_tcp_client_config);
+            nnet::setup(app_data->m_tcp_client, &app_data->m_tcp_client_config, app_data->m_tcp_socket);
 
             // Create the tcp client plugins for handshake and downloading, and register them.
             // Also set our download complete callback
@@ -163,17 +147,17 @@ namespace ncore
             nnet::tcp_recv_plugin_t* download_plugin  = nnet::new_download_plugin(on_download_begin, on_download_complete, &app_data);
 
             // Register the necessary plugins with the TCP client
-            nnet::register_plugin(app_data->m_tcpclient_asset_server, handshake_plugin);
-            nnet::register_plugin(app_data->m_tcpclient_asset_server, download_plugin);
+            nnet::register_plugin(app_data->m_tcp_client, 0, handshake_plugin);
+            nnet::register_plugin(app_data->m_tcp_client, 1, download_plugin);
 
             // Start the connection to the asset server
-            nnet::connect(app_data->m_tcpclient_asset_server);
+            nnet::connect(app_data->m_tcp_client, ASSET_SERVER_IP(), ASSET_SERVER_TCPPORT());
             state_data->m_state_data = ASSET_SERVER_STATE_CONNECTING;
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_CONNECTING)
         {
             // Check if the TCP client is connected to the asset server
-            if (nnet::is_connected(app_data->m_tcpclient_asset_server))
+            if (nnet::is_connected(app_data->m_tcp_client))
             {
                 state_data->m_state_data = ASSET_SERVER_STATE_CONNECTED;
             }
@@ -204,6 +188,12 @@ namespace ncore
 
                 // TODO
                 // Possibly verify the integrity of the downloaded assets here (e.g., checksum, signature) before proceeding.
+                nnet::tcp_recv_plugin_t* handshake_plugin = nnet::get_plugin(app_data->m_tcp_client, 0);
+                nnet::tcp_recv_plugin_t* download_plugin  = nnet::get_plugin(app_data->m_tcp_client, 1);
+                nnet::unregister_plugin(app_data->m_tcp_client, 0, handshake_plugin);
+                nnet::unregister_plugin(app_data->m_tcp_client, 1, download_plugin);
+
+                nnet::disconnect(app_data->m_tcp_client);
 
                 // Leave
                 to_state_next(state_data);

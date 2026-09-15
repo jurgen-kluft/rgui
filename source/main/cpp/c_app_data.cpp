@@ -35,7 +35,7 @@ namespace ncore
         ntouch::init_touch_gesture(app_data->m_touch_gesture, gesture_config);
 
         nnet::init_wifi_config(app_data->m_wifi_config, WIFI_SSID(), WIFI_PASSWORD(), 1000, 16000, 2.0f, 0.1f);
-        nnet::setup_default(&app_data->m_tcpclient_config);
+        nnet::setup_default(&app_data->m_tcp_client_config);
 
         // The sizes are kept zero, to indicate that no data is currently stored in the allocated memory blocks.
         app_data->m_sprite_pack_capacity   = 5 * cMB;    // PSRAM capacity of allocated sprite pack memory

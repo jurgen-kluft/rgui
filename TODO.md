@@ -9,13 +9,13 @@
 
 ## ESP32
 
-- Script language VM 
 - WiFi general client framework
+- Script language VM 
 - LCD driver is working
 - Touch driver is working
   - Gestures are working
 - Rendering
-  - Draw functions have scissor support
+  - Slice based 2D renderer
 
 # Next Steps
 
@@ -23,14 +23,17 @@
 
 - Script language
   - [WIP] host binding functions need to be written
-- TCP client download plugin
-  - [WIP] Receive Sprite Pack in PSRAM   (Max size:  4 MB)
-  - [WIP] Receive Font Pack in SRAM?     (Max size: 64 kB)
-  - [WIP] Receive Palette Pack in SRAM?  (Max size:  8 kB)
-  - [WIP] Receive Script in SRAM?        (Max size: 64 kB)
+- TCP client download plugin (can download directly in PSRAM)
+  - [WIP] Receive Sprite Pack in PSRAM    (Max size:  4 MB)
+  - [WIP] Receive Font Pack in SRAM?      (Max size: 64 kB)
+  - [WIP] Receive Palette Pack in SRAM?   (Max size:  8 kB, ~16 palettes)
+  - [WIP] Receive Script in SRAM?         (Max size: 64 kB, or 32 kB?)
+  - [WIP] Receive House Meta in SRAM?     (Max size:  2 kB)
+  - [WIP] Receive House Data in SRAM?     (Max size:  2 kB)
 - Rendering
   - Draw sprite with scaling support
-  - 2 Command buffers for double buffered rendering in SRAM (Max size: 2*8 kB = 16 kB)
+  - Screen Slice                                            (Max size: 60 kB (60 x 480 x 2))
+  - 2 Command buffers for double buffered rendering in SRAM (Max size:  8 kB (2 * 4 kB))
   - Build command buffer from draw calls
   - Compare command buffers and only execute when different from last frame or if
     frame buffer has been changed by other means.

@@ -38,14 +38,20 @@ namespace ncore
         nnet::setup_default(&app_data->m_tcp_client_config);
 
         // The sizes are kept zero, to indicate that no data is currently stored in the allocated memory blocks.
-        app_data->m_sprite_pack_capacity   = 5 * cMB;    // PSRAM capacity of allocated sprite pack memory
-        app_data->m_font_pack_capacity     = 256 * cKB;  // PSRAM capacity of allocated font pack memory
-        app_data->m_palette_pack_capacity  = 8 * cKB;    // SRAM capacity of allocated palette pack memory
-        app_data->m_script_binary_capacity = 32 * cKB;   // SRAM capacity of allocated script binary memory
+        app_data->m_sprite_pack_capacity   = 5 * cMB;   // PSRAM capacity of allocated sprite pack memory
+        app_data->m_font_pack_capacity     = 64 * cKB;  // PSRAM capacity of allocated font pack memory
+        app_data->m_palette_pack_capacity  = 8 * cKB;   // SRAM capacity of allocated palette pack memory
+        app_data->m_script_binary_capacity = 32 * cKB;  // SRAM capacity of allocated script binary memory
+        app_data->m_house_meta_capacity    = 4 * cKB;   // SRAM capacity of allocated house meta memory
+        app_data->m_house_global_capacity  = 2 * cKB;   // SRAM capacity of allocated house global memory
+        app_data->m_house_sensors_capacity = 2 * cKB;   // SRAM capacity of allocated house sensors memory
         app_data->m_sprite_pack            = (ngx2::sprite_pack_t*)nsystem::alloc_psram_aligned(app_data->m_sprite_pack_capacity, 32);
         app_data->m_font_pack              = (ngx2::font_pack_t*)nsystem::alloc_psram_aligned(app_data->m_font_pack_capacity, 32);
         app_data->m_palette_pack           = (ngx2::palette_pack_t*)nsystem::alloc_psram_aligned(app_data->m_palette_pack_capacity, 32);
         app_data->m_script_binary          = (linked_program_t*)nsystem::malloc(app_data->m_script_binary_capacity);
+        app_data->m_house_meta             = (house_t*)nsystem::malloc(app_data->m_house_meta_capacity);
+        app_data->m_house_global           = (house_global_t*)nsystem::malloc(app_data->m_house_global_capacity);
+        app_data->m_house_sensors          = (byte*)nsystem::malloc(app_data->m_house_sensors_capacity);
 
         fsm_state_data_t* state_data = &app_data->m_state_data;
         state_data->m_state_data     = 0;

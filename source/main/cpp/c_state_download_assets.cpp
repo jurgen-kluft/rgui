@@ -16,56 +16,69 @@
 
 namespace ncore
 {
-    void on_download_begin(void* user_ctx, u32 data_type, u32 data_size, byte*& data_ptr)
+    void on_download_begin(void* user_ctx, u32 data_type, u32 data_size, nnet::buffer_t& buffer)
     {
-        data_ptr = nullptr;
+        buffer.m_buffer = nullptr;
+        buffer.m_length = 0;
 
         if (data_type == DATA_TYPE_SCRIPT_BINARY)
         {
             // Store the downloaded script binary in SRAM
-            data_ptr = (byte*)nsystem::malloc(data_size);
+            buffer.m_buffer = (byte*)nsystem::malloc(data_size);
+            buffer.m_length = data_size;
         }
         else if (data_type == DATA_TYPE_SPRITE_PACK)
         {
             // Store the downloaded sprite pack in PSRAM
-            data_ptr = nsystem::alloc_psram_aligned(data_size, 32);
+            buffer.m_buffer = nsystem::alloc_psram_aligned(data_size, 32);
+            buffer.m_length = data_size;
         }
         else if (data_type == DATA_TYPE_FONT_PACK)
         {
             // Store the downloaded font pack in PSRAM
-            data_ptr = nsystem::alloc_psram_aligned(data_size, 32);
+            buffer.m_buffer = nsystem::alloc_psram_aligned(data_size, 32);
+            buffer.m_length = data_size;
         }
         else if (data_type == DATA_TYPE_PALETTE_PACK)
         {
             // Store the downloaded palette pack in PSRAM
-            data_ptr = nsystem::alloc_psram_aligned(data_size, 32);
+            buffer.m_buffer = nsystem::alloc_psram_aligned(data_size, 32);
+            buffer.m_length = data_size;
         }
     }
 
-    void on_download_complete(void* user_ctx, u32 data_type, u32 data_size, byte const* data_ptr)
+    void on_download_complete(void* user_ctx, u32 data_type, nnet::buffer_t buffer)
     {
         app_data_t* app_data = (app_data_t*)user_ctx;
 
         if (data_type == DATA_TYPE_SCRIPT_BINARY)
         {
             // Store the downloaded script binary in PSRAM
-            app_data->m_script_binary      = (linked_program_t*)data_ptr;
-            app_data->m_script_binary_size = data_size;
+            app_data->m_script_binary      = (linked_program_t*)buffer.m_buffer;
+            app_data->m_script_binary_size = buffer.m_length;
         }
         else if (data_type == DATA_TYPE_SPRITE_PACK)
         {
             // Store the downloaded sprite pack in PSRAM
-            app_data->m_sprite_pack = (ngx2::sprite_pack_t*)data_ptr;
+            app_data->m_sprite_pack = (ngx2::sprite_pack_t*)buffer.m_buffer;
         }
         else if (data_type == DATA_TYPE_FONT_PACK)
         {
             // Store the downloaded font pack in PSRAM
-            app_data->m_font_pack = (ngx2::font_pack_t*)data_ptr;
+            app_data->m_font_pack = (ngx2::font_pack_t*)buffer.m_buffer;
         }
         else if (data_type == DATA_TYPE_PALETTE_PACK)
         {
             // Store the downloaded palette pack in PSRAM
-            app_data->m_palette_pack = (ngx2::palette_pack_t*)data_ptr;
+            app_data->m_palette_pack = (ngx2::palette_pack_t*)buffer.m_buffer;
+        }
+    }
+
+    static void on_download_abort(void* on_abort_context, u32 data_type, nnet::buffer_t buffer)
+    {
+        if (buffer.m_buffer)
+        {
+            nsystem::free(buffer.m_buffer);
         }
     }
 
@@ -75,54 +88,6 @@ namespace ncore
     {
         // pairs of "u32 asset_type" and "u32 asset_version" follow
     };
-
-    static void on_handshake_complete(void* user_ctx, u32 data_type, u32 data_size, byte const* data_ptr)
-    {
-        app_data_t* app_data = (app_data_t*)user_ctx;
-
-        if (data_type == 1)  // 1 means handshake success
-        {
-            byte msg_memory[64];
-
-            asset_server_request_t* assets_msg = (asset_server_request_t*)msg_memory;
-            assets_msg->Magic                  = 0xF00D;
-            assets_msg->Type                   = MSG_TYPE_ASSET_SERVER_REQUEST;
-            assets_msg->PayloadSize            = 4 * (4 + 4);
-            assets_msg->Checksum               = 0;  // No checksum
-
-            const u8* mac = nnet::get_mac_address(app_data->m_wifi_manager);
-            g_memcpy(assets_msg->Mac, mac, 6);
-
-            const u32 script_version       = (app_data->m_script_binary != nullptr) ? app_data->m_script_binary->m_version : 0;
-            const u32 sprite_pack_version  = (app_data->m_sprite_pack != nullptr) ? app_data->m_sprite_pack->m_version : 0;
-            const u32 font_pack_version    = (app_data->m_font_pack != nullptr) ? app_data->m_font_pack->m_version : 0;
-            const u32 palette_pack_version = (app_data->m_palette_pack != nullptr) ? app_data->m_palette_pack->m_version : 0;
-
-            u32* payload = (u32*)(assets_msg + 1);
-            payload[0]   = DATA_TYPE_SCRIPT_BINARY;
-            payload[1]   = script_version;
-            payload[2]   = DATA_TYPE_SPRITE_PACK;
-            payload[3]   = sprite_pack_version;
-            payload[4]   = DATA_TYPE_FONT_PACK;
-            payload[5]   = font_pack_version;
-            payload[6]   = DATA_TYPE_PALETTE_PACK;
-            payload[7]   = palette_pack_version;
-
-            nnet::send_later(app_data->m_tcp_client, (byte*)assets_msg, sizeof(asset_server_request_t) + assets_msg->PayloadSize);
-
-            // After the handshake is complete, and we have sent our asset request, we
-            // start downloading assets from the asset server.
-            // We will use the download plugin to handle the downloading of the assets.
-            // An asset that is already up-to-date as a message will contain no payload but
-            // enough information to determine that it is up-to-date.
-            app_data->m_state_data.m_state_data = ASSET_SERVER_STATE_DOWNLOADING;
-        }
-        else
-        {
-            // Error during handshake, we can set the state to error and handle it accordingly.
-            app_data->m_state_data.m_state_data = ASSET_SERVER_STATE_ERROR;
-        }
-    }
 
     enum asset_server_state_t
     {
@@ -143,12 +108,10 @@ namespace ncore
 
             // Create the tcp client plugins for handshake and downloading, and register them.
             // Also set our download complete callback
-            nnet::tcp_recv_plugin_t* handshake_plugin = nnet::new_handshake_plugin(on_handshake_complete, &app_data);
-            nnet::tcp_recv_plugin_t* download_plugin  = nnet::new_download_plugin(on_download_begin, on_download_complete, &app_data);
+            nnet::tcp_recv_plugin_t* download_plugin = nnet::new_download_plugin(on_download_begin, on_download_complete, on_download_abort, &app_data);
 
             // Register the necessary plugins with the TCP client
-            nnet::register_plugin(app_data->m_tcp_client, 0, handshake_plugin);
-            nnet::register_plugin(app_data->m_tcp_client, 1, download_plugin);
+            nnet::register_plugin(app_data->m_tcp_client, 0, download_plugin);
 
             // Start the connection to the asset server
             nnet::connect(app_data->m_tcp_client, ASSET_SERVER_IP(), ASSET_SERVER_TCPPORT());
@@ -188,10 +151,8 @@ namespace ncore
 
                 // TODO
                 // Possibly verify the integrity of the downloaded assets here (e.g., checksum, signature) before proceeding.
-                nnet::tcp_recv_plugin_t* handshake_plugin = nnet::get_plugin(app_data->m_tcp_client, 0);
-                nnet::tcp_recv_plugin_t* download_plugin  = nnet::get_plugin(app_data->m_tcp_client, 1);
-                nnet::unregister_plugin(app_data->m_tcp_client, 0, handshake_plugin);
-                nnet::unregister_plugin(app_data->m_tcp_client, 1, download_plugin);
+                nnet::tcp_recv_plugin_t* download_plugin  = nnet::get_plugin(app_data->m_tcp_client, 0);
+                nnet::unregister_plugin(app_data->m_tcp_client, 0, download_plugin);
 
                 nnet::disconnect(app_data->m_tcp_client);
 

@@ -122,12 +122,13 @@ namespace ncore
             g_renderer.m_current_fb = 0;
             g_renderer.m_cmd_count  = 0;
 
-            // Allocate SRAM canvas
+            // Allocate SRAM canvas (60 * 480 * 2 = 57600 bytes)
             g_renderer.m_sram_canvas_height = sram_canvas_height;
             g_renderer.m_sram_canvas_width  = fb_width;
             g_renderer.m_sram_canvas        = (u16*)nsystem::malloc(sram_canvas_height * fb_width * sizeof(u16));
 
             // Allocate command buffer and arguments
+            // Allocate command buffer and arguments (cMaxCmdCount * (1 + 2 + 16) = 2304 bytes)
             g_renderer.m_cmd_bits   = (draw_cmd_bits_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_bits_t));
             g_renderer.m_cmd_buffer = (draw_cmd_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_t));
             g_renderer.m_cmd_args   = (draw_cmd_args_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_args_t));

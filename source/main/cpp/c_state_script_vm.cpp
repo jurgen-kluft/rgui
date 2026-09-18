@@ -28,27 +28,30 @@ namespace ncore
 
     void state_initialize_script_vm(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
-        app_vm_t* app_vm = &s_app_vm;
-
+        app_vm_t* app_vm       = &s_app_vm;
         app_vm->linked_program = open_program_image((byte*)app_data->m_script_binary, app_data->m_script_binary_size);
 
+        const u32 call_frame_capacity = 8;
+
+        const u32 stack_byte_size      = 256;
+        const u32 bss_byte_size        = math::alignUp(app_vm->linked_program->m_bss_byte_size, 32);
+        const u32 data_data_size       = math::alignUp(app_vm->linked_program->m_data_data.m_size, 32);
+        const u32 frame_byte_size      = math::alignUp(call_frame_capacity * app_vm->linked_program->m_frame_byte_size, 32);
+        const u32 call_frame_byte_size = call_frame_capacity * sizeof(call_frame_t);
+
         // Allocate the script VM memory regions
-        // STACK
-        const u32 stack_byte_size = 256;
-        void*     stack_memory    = nsystem::malloc(stack_byte_size);
-        // BSS
-        const u32 bss_byte_size = math::alignUp(app_vm->linked_program->m_bss_byte_size, 32);
-        void*     bss_memory    = nsystem::malloc(bss_byte_size);
-        // DATA
-        const u32 data_data_size = math::alignUp(app_vm->linked_program->m_data_data.m_size, 32);
-        void*     data_memory    = nsystem::malloc(data_data_size);
-        // CALL FRAMES
-        const u32 call_frame_capacity = 16;
-        void*     call_frames_memory  = nsystem::malloc(call_frame_capacity * sizeof(call_frame_t));
-        app_vm->m_call_frames       = (call_frame_t*)call_frames_memory;
-        // FRAME
-        const u32 frame_byte_size = math::alignUp(app_vm->linked_program->m_frame_byte_size, 32);
-        void*     frame_memory    = nsystem::malloc(frame_byte_size);
+        void* stack_memory       = nsystem::malloc(stack_byte_size);
+        void* bss_memory         = nsystem::malloc(bss_byte_size);
+        void* data_memory        = nsystem::malloc(data_data_size);
+        void* frame_memory       = nsystem::malloc(frame_byte_size);
+        void* call_frames_memory = nsystem::malloc(call_frame_byte_size);
+
+        // SRAM rough estimation is < 4 kB, breakdown:
+        // - STACK: 256 bytes
+        // - BSS: 512 bytes
+        // - DATA: 1 kB
+        // - CALL FRAMES: 8 * 8 = 64 bytes
+        // - FRAME: 512 bytes
 
         app_vm->m_bss.m_data       = (byte*)bss_memory;
         app_vm->m_bss.m_capacity   = bss_byte_size;
@@ -62,6 +65,7 @@ namespace ncore
         app_vm->m_stack.m_data     = (byte*)stack_memory;
         app_vm->m_stack.m_capacity = stack_byte_size;
         app_vm->m_stack.m_size     = 0;
+        app_vm->m_call_frames      = (call_frame_t*)call_frames_memory;
 
         initialize_vm(&app_vm->m_vm, app_vm->m_call_frames, call_frame_capacity, app_vm->m_frame, app_vm->m_bss, app_vm->m_external, app_vm->m_data, app_vm->m_stack);
         register_extern_dispatcher(&app_vm->m_vm, app_data, extern_host_fn);
@@ -69,8 +73,8 @@ namespace ncore
         to_state_next(&app_data->m_state_data);
     }
 
-    void update_script(app_data_t& app_data, u64 now_ms) 
-    { 
+    void update_script(app_data_t& app_data, u64 now_ms)
+    {
         app_vm_t* app_vm = &s_app_vm;
 
         run_vm(&app_vm->m_vm, app_vm->linked_program);

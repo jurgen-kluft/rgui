@@ -29,13 +29,17 @@ namespace ncore
     {
         g_memclr(app_data, sizeof(app_data_t));
 
-        app_data->m_random.reset(0x1234567890abcdef);  // Initialize the random number generator with a fixed seed for reproducibility
+        app_data->m_random.reset(0xbeebbeebb00bb00b);  // Initialize the random number generator with a fixed seed for reproducibility
 
         ntouch::gesture_config_t gesture_config;
         ntouch::init_touch_gesture(app_data->m_touch_gesture, gesture_config);
 
         nnet::init_wifi_config(app_data->m_wifi_config, WIFI_SSID(), WIFI_PASSWORD(), 1000, 16000, 2.0f, 0.1f);
         nnet::setup_default(&app_data->m_tcp_client_config);
+
+        // Note: 
+        // - The 2D renderer will occupy around 64 KB of SRAM
+        // - The script VM runtime uses around 4 to 8 kB of SRAM
 
         // The sizes are kept zero, to indicate that no data is currently stored in the allocated memory blocks.
         app_data->m_sprite_pack_capacity   = 5 * cMB;   // PSRAM capacity of allocated sprite pack memory

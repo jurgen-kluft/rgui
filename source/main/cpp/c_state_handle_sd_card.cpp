@@ -9,11 +9,17 @@
 
 namespace ncore
 {
-    static bool s_has_newer_version(const char* filename, u32 current_version)
+    static bool s_has_newer_version(const char* filename, u32 file_offset, u32 current_version)
     {
         u32 pack_version = 0;
-        nlcd::sdcard_read_bytes(filename, 0, (u8*)&pack_version, sizeof(pack_version));
+        nlcd::sdcard_read_bytes(filename, file_offset, (u8*)&pack_version, sizeof(pack_version));
         return (pack_version > current_version);
+    }
+
+    static bool s_read_file(const char* filename, u8* buffer, u32 buffer_capacity, u32& file_size)
+    {
+        // read the file from the SD card into the buffer
+        return nlcd::sdcard_read_file(filename, buffer, buffer_capacity, file_size);
     }
 
     void state_handle_sd_card(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
@@ -38,38 +44,47 @@ namespace ncore
             // - palette_pack.bin
             // - script.bin
             const char* filename = "sprite_pack.bin";
-            if (app_data->m_sprite_pack_size == 0 || s_has_newer_version(filename, app_data->m_sprite_pack->m_version))
+            if (app_data->m_sprite_pack_size == 0 || s_has_newer_version(filename, 0, app_data->m_sprite_pack->m_version))
             {
-                if (nlcd::sdcard_read_file(filename, (u8*)app_data->m_sprite_pack, app_data->m_sprite_pack_capacity, app_data->m_sprite_pack_size))
+                if (s_read_file(filename, (u8*)app_data->m_sprite_pack, app_data->m_sprite_pack_capacity, app_data->m_sprite_pack_size))
                 {
                     app_data->m_sprite_pack_source = EDATA_SOURCE_SD_CARD;
                 }
             }
 
             filename = "font_pack.bin";
-            if (app_data->m_font_pack_size == 0 || s_has_newer_version(filename, app_data->m_font_pack->m_version))
+            if (app_data->m_font_pack_size == 0 || s_has_newer_version(filename, 0, app_data->m_font_pack->m_version))
             {
-                if (nlcd::sdcard_read_file(filename, (u8*)app_data->m_font_pack, app_data->m_font_pack_capacity, app_data->m_font_pack_size))
+                if (s_read_file(filename, (u8*)app_data->m_font_pack, app_data->m_font_pack_capacity, app_data->m_font_pack_size))
                 {
                     app_data->m_font_pack_source = EDATA_SOURCE_SD_CARD;
                 }
             }
 
             filename = "palette_pack.bin";
-            if (app_data->m_palette_pack_size == 0 || s_has_newer_version(filename, app_data->m_palette_pack->m_version))
+            if (app_data->m_palette_pack_size == 0 || s_has_newer_version(filename, 0, app_data->m_palette_pack->m_version))
             {
-                if (nlcd::sdcard_read_file(filename, (u8*)app_data->m_palette_pack, app_data->m_palette_pack_capacity, app_data->m_palette_pack_size))
+                if (s_read_file(filename, (u8*)app_data->m_palette_pack, app_data->m_palette_pack_capacity, app_data->m_palette_pack_size))
                 {
                     app_data->m_palette_pack_source = EDATA_SOURCE_SD_CARD;
                 }
             }
 
             filename = "script.bin";
-            if (app_data->m_script_binary_size == 0 || s_has_newer_version(filename, app_data->m_script_binary->m_version))
+            if (app_data->m_script_binary_size == 0 || s_has_newer_version(filename, 4, app_data->m_script_binary->m_version))
             {
-                if (nlcd::sdcard_read_file(filename, (u8*)app_data->m_script_binary, app_data->m_script_binary_capacity, app_data->m_script_binary_size))
+                if (s_read_file(filename, (u8*)app_data->m_script_binary, app_data->m_script_binary_capacity, app_data->m_script_binary_size))
                 {
                     app_data->m_script_binary_source = EDATA_SOURCE_SD_CARD;
+                }
+            }
+
+            filename = "house.bin";
+            if (app_data->m_house_meta_size == 0 || s_has_newer_version(filename, 0, app_data->m_house_meta->m_version))
+            {
+                if (s_read_file(filename, (u8*)app_data->m_house_meta, app_data->m_house_meta_capacity, app_data->m_house_meta_size))
+                {
+                    app_data->m_house_meta_source = EDATA_SOURCE_SD_CARD;
                 }
             }
 

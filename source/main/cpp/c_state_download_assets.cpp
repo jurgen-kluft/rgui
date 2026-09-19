@@ -25,33 +25,55 @@ namespace ncore
 
     static bool on_download_begin(void* user_ctx, u32 data_type, u32 data_size, nnet::buffer_t& buffer)
     {
-        if (data_type == DATA_TYPE_SCRIPT_BINARY)
+        app_data_t* app_data = (app_data_t*)user_ctx;
+
+        switch (data_type)
         {
-            // Store the downloaded script binary in SRAM
-            buffer.m_buffer = (byte*)nsystem::malloc(data_size);
-            buffer.m_length = data_size;
-            return true;
-        }
-        else if (data_type == DATA_TYPE_SPRITE_PACK)
-        {
-            // Store the downloaded sprite pack in PSRAM
-            buffer.m_buffer = nsystem::alloc_psram_aligned(data_size, 32);
-            buffer.m_length = data_size;
-            return true;
-        }
-        else if (data_type == DATA_TYPE_FONT_PACK)
-        {
-            // Store the downloaded font pack in PSRAM
-            buffer.m_buffer = nsystem::alloc_psram_aligned(data_size, 32);
-            buffer.m_length = data_size;
-            return true;
-        }
-        else if (data_type == DATA_TYPE_PALETTE_PACK)
-        {
-            // Store the downloaded palette pack in PSRAM
-            buffer.m_buffer = nsystem::alloc_psram_aligned(data_size, 32);
-            buffer.m_length = data_size;
-            return true;
+            case DATA_TYPE_SCRIPT_BINARY:
+                // Store the downloaded script binary in SRAM
+                if (data_size <= app_data->m_script_binary_capacity)
+                {
+                    buffer.m_buffer = (u8*)app_data->m_script_binary;
+                    buffer.m_length = data_size;
+                    return true;
+                }
+                break;
+            case DATA_TYPE_SPRITE_PACK:
+                // Store the downloaded sprite pack in PSRAM
+                if (data_size <= app_data->m_sprite_pack_capacity)
+                {
+                    buffer.m_buffer = (u8*)app_data->m_sprite_pack;
+                    buffer.m_length = data_size;
+                    return true;
+                }
+                break;
+            case DATA_TYPE_FONT_PACK:
+                // Store the downloaded font pack in PSRAM
+                if (data_size <= app_data->m_font_pack_capacity)
+                {
+                    buffer.m_buffer = (u8*)app_data->m_font_pack;
+                    buffer.m_length = data_size;
+                    return true;
+                }
+                break;
+            case DATA_TYPE_PALETTE_PACK:
+                // Store the downloaded palette pack in PSRAM
+                if (data_size <= app_data->m_palette_pack_capacity)
+                {
+                    buffer.m_buffer = (u8*)app_data->m_palette_pack;
+                    buffer.m_length = data_size;
+                    return true;
+                }
+                break;
+            case DATA_TYPE_HOUSE_META:
+                // Store the downloaded house meta in PSRAM
+                if (data_size <= app_data->m_house_meta_capacity)
+                {
+                    buffer.m_buffer = (u8*)app_data->m_house_meta;
+                    buffer.m_length = data_size;
+                    return true;
+                }
+                break;
         }
 
         buffer.m_buffer = nullptr;
@@ -62,36 +84,29 @@ namespace ncore
     static void on_download_complete(void* user_ctx, u32 data_type, nnet::buffer_t buffer)
     {
         app_data_t* app_data = (app_data_t*)user_ctx;
-
-        if (data_type == DATA_TYPE_SCRIPT_BINARY)
+        switch (data_type)
         {
-            // Store the downloaded script binary in PSRAM
-            app_data->m_script_binary      = (linked_program_t*)buffer.m_buffer;
-            app_data->m_script_binary_size = buffer.m_length;
-        }
-        else if (data_type == DATA_TYPE_SPRITE_PACK)
-        {
-            // Store the downloaded sprite pack in PSRAM
-            app_data->m_sprite_pack = (ngx2::sprite_pack_t*)buffer.m_buffer;
-        }
-        else if (data_type == DATA_TYPE_FONT_PACK)
-        {
-            // Store the downloaded font pack in PSRAM
-            app_data->m_font_pack = (ngx2::font_pack_t*)buffer.m_buffer;
-        }
-        else if (data_type == DATA_TYPE_PALETTE_PACK)
-        {
-            // Store the downloaded palette pack in PSRAM
-            app_data->m_palette_pack = (ngx2::palette_pack_t*)buffer.m_buffer;
+            case DATA_TYPE_SCRIPT_BINARY:
+                app_data->m_script_binary_size = buffer.m_length;
+                break;
+            case DATA_TYPE_SPRITE_PACK:
+                app_data->m_sprite_pack_size = buffer.m_length;
+                break;
+            case DATA_TYPE_FONT_PACK:
+                app_data->m_font_pack_size = buffer.m_length;
+                break;
+            case DATA_TYPE_PALETTE_PACK:
+                app_data->m_palette_pack_size = buffer.m_length;
+                break;
+            case DATA_TYPE_HOUSE_META:
+                app_data->m_house_meta_size = buffer.m_length;
+                break;
         }
     }
 
     static void on_download_abort(void* on_abort_context, u32 data_type, nnet::buffer_t buffer)
     {
-        if (buffer.m_buffer)
-        {
-            nsystem::free(buffer.m_buffer);
-        }
+        // nop
     }
 
     // 888b     d888 8888888888 .d8888b.   .d8888b.        d8888  .d8888b.  8888888888 .d8888b.
@@ -189,23 +204,23 @@ namespace ncore
             assets[DATA_TYPE_SCRIPT_BINARY] = {DATA_TYPE_SCRIPT_BINARY, 0};
             assets[DATA_TYPE_HOUSE_META]    = {DATA_TYPE_HOUSE_META, 0};
 
-            if (app_data->m_sprite_pack != nullptr)
+            if (app_data->m_sprite_pack_size > 0 && app_data->m_sprite_pack != nullptr)
             {
                 assets[DATA_TYPE_SPRITE_PACK] = {DATA_TYPE_SPRITE_PACK, app_data->m_sprite_pack->m_version};
             }
-            if (app_data->m_font_pack != nullptr)
+            if (app_data->m_font_pack_size > 0 && app_data->m_font_pack != nullptr)
             {
                 assets[DATA_TYPE_FONT_PACK] = {DATA_TYPE_FONT_PACK, app_data->m_font_pack->m_version};
             }
-            if (app_data->m_palette_pack != nullptr)
+            if (app_data->m_palette_pack_size > 0 && app_data->m_palette_pack != nullptr)
             {
                 assets[DATA_TYPE_PALETTE_PACK] = {DATA_TYPE_PALETTE_PACK, app_data->m_palette_pack->m_version};
             }
-            if (app_data->m_script_binary != nullptr)
+            if (app_data->m_script_binary_size > 0 && app_data->m_script_binary != nullptr)
             {
                 assets[DATA_TYPE_SCRIPT_BINARY] = {DATA_TYPE_SCRIPT_BINARY, app_data->m_script_binary->m_version};
             }
-            if (app_data->m_house_meta != nullptr)
+            if (app_data->m_house_meta_size > 0 && app_data->m_house_meta != nullptr)
             {
                 assets[DATA_TYPE_HOUSE_META] = {DATA_TYPE_HOUSE_META, app_data->m_house_meta->m_version};
             }

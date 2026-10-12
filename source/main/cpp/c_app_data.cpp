@@ -37,7 +37,7 @@ namespace ncore
         nnet::init_wifi_config(app_data->m_wifi_config, WIFI_SSID(), WIFI_PASSWORD(), 1000, 16000, 2.0f, 0.1f);
         nnet::setup_default(&app_data->m_tcp_client_config);
 
-        // Note: 
+        // Note:
         // - The 2D renderer will occupy around 64 KB of SRAM
         // - The script VM runtime uses around 4 to 8 kB of SRAM
 
@@ -53,9 +53,8 @@ namespace ncore
         app_data->m_font_pack              = (ngx2::font_pack_t*)nsystem::alloc_psram_aligned(app_data->m_font_pack_capacity, 32);
         app_data->m_palette_pack           = (ngx2::palette_pack_t*)nsystem::alloc_psram_aligned(app_data->m_palette_pack_capacity, 32);
         app_data->m_script_binary          = (linked_program_t*)nsystem::malloc(app_data->m_script_binary_capacity);
-        app_data->m_house_meta             = (house_t*)nsystem::malloc(app_data->m_house_meta_capacity);
-        app_data->m_house_global           = (house_global_t*)nsystem::malloc(app_data->m_house_global_capacity);
-        app_data->m_house_sensors          = (byte*)nsystem::malloc(app_data->m_house_sensors_capacity);
+
+        app_data->m_house = alloc_house(app_data->m_house_meta_capacity, app_data->m_house_global_capacity, app_data->m_house_sensors_capacity);
 
         fsm_state_data_t* state_data = &app_data->m_state_data;
         state_data->m_state_data     = 0;
@@ -76,6 +75,14 @@ namespace ncore
         app_data->m_state_fn[FSM_STATE_INITIALIZE_SCRIPT_VM] = state_initialize_script_vm;
         app_data->m_state_fn[FSM_STATE_ACTIVE]               = state_active;
         app_data->m_state_fn[FSM_STATE_ERROR]                = state_error;
+    }
+
+    void register_app_tick_fn(app_data_t* app_data, app_tick_fn fn)
+    {
+        if (app_data != nullptr && fn != nullptr && app_data->m_app_tick_fn_count < 8)
+        {
+            app_data->m_app_tick_fn[app_data->m_app_tick_fn_count++] = fn;
+        }
     }
 
     bool get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size, u32& script_memory_capacity)

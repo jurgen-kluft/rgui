@@ -42,15 +42,15 @@ namespace ncore
         {
             case EXTERN_CLEAR_SCREEN:
                 {
-                    const u32 color = pop_bits32(vm, KindUint32);
+                    const u32 color = pop_u32(vm);
                     ngui::clear_background(color);
                 }
                 break;
             case EXTERN_DRAW_SPRITE:
                 {
-                    const u16 y        = (u16)pop_bits32(vm, KindUint16);
-                    const u16 x        = (u16)pop_bits32(vm, KindUint16);
-                    const u16 spriteId = (u16)pop_bits32(vm, KindUint16);
+                    const u16 y        = pop_u16(vm);
+                    const u16 x        = pop_u16(vm);
+                    const u16 spriteId = pop_u16(vm);
                     ngui::draw_sprite(spriteId, x, y);
                 }
                 break;

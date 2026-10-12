@@ -5,6 +5,7 @@
 #include "rwifi/c_wifi_mgr.h"
 #include "rwifi/c_tcp_client_plugins.h"
 
+#include "rhome/c_home.h"
 #include "rhome/c_msg.h"
 
 #include "main/c_app_data.h"
@@ -19,23 +20,60 @@ namespace ncore
         SENSOR_SERVER_STATE_ERROR,
     };
 
-    void on_message_begin(void* user_ctx, u32 data_type, u32 data_size, byte*& data_ptr)
+    bool on_recv_user_acquire_fn(void* on_acquire_context, u32 data_type, u32 data_size, nnet::buffer_t& out_buffer)
     {
-        data_ptr = nullptr;
+        app_data_t* app_data = (app_data_t*)on_acquire_context;
 
+        switch (data_type)
+        {
+            case nnet::MSG_TYPE_HOUSE_META_DATA:
+                out_buffer.m_buffer = (u8*)app_data->m_house->m_meta;
+                out_buffer.m_length = app_data->m_house->m_meta_capacity_size;
+                return true;
+            case nnet::MSG_TYPE_HOUSE_GLOBAL_DATA:
+                out_buffer.m_buffer = (u8*)app_data->m_house->m_global;
+                out_buffer.m_length = app_data->m_house->m_global_capacity_size;
+                return true;
+            case nnet::MSG_TYPE_HOUSE_SENSOR_DATA:
+                out_buffer.m_buffer = (u8*)app_data->m_house->m_sensors;
+                out_buffer.m_length = app_data->m_house->m_sensors_capacity_size;
+                return true;
+        }
+
+        out_buffer.m_buffer = nullptr;
+        out_buffer.m_length = 0;
+        return false;
     }
 
-    void on_message_complete(void* user_ctx, u32 data_type, u32 data_size, byte const* data_ptr)
+    void on_recv_user_complete_fn(void* on_complete_context, u32 data_type, nnet::buffer_t buffer)
     {
-        app_data_t* app_data = (app_data_t*)user_ctx;
-
+        app_data_t* app_data = (app_data_t*)on_complete_context;
+        switch (data_type)
+        {
+            case nnet::MSG_TYPE_HOUSE_META_DATA: set_house_meta_data(app_data->m_house, buffer.m_buffer, buffer.m_length); break;
+            case nnet::MSG_TYPE_HOUSE_GLOBAL_DATA: set_house_global_data(app_data->m_house, buffer.m_buffer, buffer.m_length); break;
+            case nnet::MSG_TYPE_HOUSE_SENSOR_DATA: set_house_sensor_data(app_data->m_house, buffer.m_buffer, buffer.m_length); break;
+        }
     }
+
+    void on_recv_user_abort_fn(void* on_abort_context, u32 data_type, nnet::buffer_t buffer)
+    {
+        app_data_t* app_data = (app_data_t*)on_abort_context;
+        switch (data_type)
+        {
+            case nnet::MSG_TYPE_HOUSE_META_DATA: app_data->m_house->m_meta_data_size = 0; break;
+            case nnet::MSG_TYPE_HOUSE_GLOBAL_DATA: app_data->m_house->m_global_data_size = 0; break;
+            case nnet::MSG_TYPE_HOUSE_SENSOR_DATA: app_data->m_house->m_sensors_data_size = 0; break;
+        }
+    }
+
+    static void s_tick_sensor_server(app_data_t* app_data) { nnet::tick_tcp_client(&app_data->m_wifi_manager, app_data->m_tcp_client); }
 
     void state_handle_sensor_server(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
         if (state_data->m_state_data == SENSOR_SERVER_STATE_SETUP)
         {
-            nnet::tcp_recv_plugin_t* messages_plugin = nnet::new_messages_plugin(on_message_begin, on_message_complete, &app_data);
+            nnet::tcp_recv_plugin_t* messages_plugin = nnet::new_messages_plugin(on_recv_user_acquire_fn, on_recv_user_complete_fn, on_recv_user_abort_fn, &app_data);
 
             nnet::register_plugin(app_data->m_tcp_client, 0, messages_plugin);
             nnet::connect(app_data->m_tcp_client, SENSOR_SERVER_IP(), SENSOR_SERVER_TCPPORT());
@@ -47,6 +85,7 @@ namespace ncore
             // Check if the TCP client is connected to the sensor server
             if (nnet::is_connected(app_data->m_tcp_client))
             {
+                register_app_tick_fn(app_data, s_tick_sensor_server);
                 state_data->m_state_data = SENSOR_SERVER_STATE_CONNECTED;
             }
         }

@@ -32,8 +32,7 @@ namespace ncore
         DATA_TYPE_SPRITE_PACK   = 1,
         DATA_TYPE_FONT_PACK     = 2,
         DATA_TYPE_PALETTE_PACK  = 3,
-        DATA_TYPE_HOUSE_META    = 4,
-        DATA_TYPE_COUNT         = 5,
+        DATA_TYPE_COUNT         = 4,
     };
 
     enum fsm_state_enum_t
@@ -88,7 +87,6 @@ namespace ncore
     void state_initialize_script_vm(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
 
     void state_active(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
-
     void state_error(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
 
     enum edata_source_t
@@ -99,6 +97,8 @@ namespace ncore
         EDATA_SOURCE_ASSET_SERVER,
     };
 
+    typedef void (*app_tick_fn)(app_data_t* app_data);
+
     struct app_data_t
     {
         bool m_sd_card_available;
@@ -107,6 +107,9 @@ namespace ncore
         xor_random_t            m_random;         // XORShift random number generator for any randomization needs
         ntouch::touch_t         m_touch;          // Touch
         ntouch::touch_gesture_t m_touch_gesture;  // Touch gesture state
+
+        u32         m_app_tick_fn_count;  // Number of registered app tick functions
+        app_tick_fn m_app_tick_fn[8];     // Array of registered app tick functions
 
         nnet::wifi_manager_t m_wifi_manager;  // WiFi manager for network connectivity
         nnet::wifi_config_t  m_wifi_config;   // WiFi configuration
@@ -133,16 +136,14 @@ namespace ncore
         u32                   m_script_binary_size;      // size of the script binary in bytes
         u32                   m_script_binary_capacity;  // capacity of allocated script binary memory
         linked_program_t*     m_script_binary;           // pointer to the script binary in PSRAM
+        house_t*              m_house;                   // pointer to the house meta data in SRAM
         edata_source_t        m_house_meta_source;       // Source of the house meta data (e.g., LITTLE_FS, SD_CARD, ASSET_SERVER)
         u32                   m_house_meta_size;         // size of the house meta data in bytes
         u32                   m_house_meta_capacity;     // capacity of allocated house meta data memory
-        house_t*              m_house_meta;              // pointer to the house meta data in SRAM
         u32                   m_house_global_size;       // size of the house global data in bytes
         u32                   m_house_global_capacity;   // capacity of allocated house global data memory
-        house_global_t*       m_house_global;            // pointer to the house global data in SRAM
         u32                   m_house_sensors_size;      // size of the house sensor data in bytes
         u32                   m_house_sensors_capacity;  // capacity of allocated house sensor data memory
-        byte*                 m_house_sensors;           // pointer to the house sensor data in SRAM
 
         fsm_state_data_t m_state_data;                 // Current state call type (enter, update, leave)
         state_fn_t       m_state_fn[FSM_STATE_COUNT];  // Array of state functions for each application state
@@ -151,6 +152,7 @@ namespace ncore
     bool get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size, u32& script_memory_capacity);
 
     void init_app_data(app_data_t* app_data);
+    void register_app_tick_fn(app_data_t* app_data, app_tick_fn fn);
 
     void update_touch(app_data_t* data, u64 now_ms);
     void update_script(app_data_t* data, u64 now_ms);

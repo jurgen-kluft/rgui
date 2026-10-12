@@ -65,15 +65,6 @@ namespace ncore
                     return true;
                 }
                 break;
-            case DATA_TYPE_HOUSE_META:
-                // Store the downloaded house meta in PSRAM
-                if (data_size <= app_data->m_house_meta_capacity)
-                {
-                    buffer.m_buffer = (u8*)app_data->m_house_meta;
-                    buffer.m_length = data_size;
-                    return true;
-                }
-                break;
         }
 
         buffer.m_buffer = nullptr;
@@ -97,9 +88,6 @@ namespace ncore
                 break;
             case DATA_TYPE_PALETTE_PACK:
                 app_data->m_palette_pack_size = buffer.m_length;
-                break;
-            case DATA_TYPE_HOUSE_META:
-                app_data->m_house_meta_size = buffer.m_length;
                 break;
         }
     }
@@ -182,6 +170,8 @@ namespace ncore
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_CONNECTING)
         {
+            nnet::tick_tcp_client(&app_data->m_wifi_manager, app_data->m_tcp_client);
+
             // Check if the TCP client is connected to the asset server
             if (nnet::is_connected(app_data->m_tcp_client))
             {
@@ -190,6 +180,8 @@ namespace ncore
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_CONNECTED)
         {
+            nnet::tick_tcp_client(&app_data->m_wifi_manager, app_data->m_tcp_client);
+
             //
             // Send download_request_msg_t to the server to initiate the download process
             //
@@ -202,7 +194,6 @@ namespace ncore
             assets[DATA_TYPE_FONT_PACK]     = {DATA_TYPE_FONT_PACK, 0};
             assets[DATA_TYPE_PALETTE_PACK]  = {DATA_TYPE_PALETTE_PACK, 0};
             assets[DATA_TYPE_SCRIPT_BINARY] = {DATA_TYPE_SCRIPT_BINARY, 0};
-            assets[DATA_TYPE_HOUSE_META]    = {DATA_TYPE_HOUSE_META, 0};
 
             if (app_data->m_sprite_pack_size > 0 && app_data->m_sprite_pack != nullptr)
             {
@@ -220,10 +211,6 @@ namespace ncore
             {
                 assets[DATA_TYPE_SCRIPT_BINARY] = {DATA_TYPE_SCRIPT_BINARY, app_data->m_script_binary->m_version};
             }
-            if (app_data->m_house_meta_size > 0 && app_data->m_house_meta != nullptr)
-            {
-                assets[DATA_TYPE_HOUSE_META] = {DATA_TYPE_HOUSE_META, app_data->m_house_meta->m_version};
-            }
 
             for (i32 i = 0; i < DATA_TYPE_COUNT; ++i)
             {
@@ -239,12 +226,13 @@ namespace ncore
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_DOWNLOADING)
         {
+            nnet::tick_tcp_client(&app_data->m_wifi_manager, app_data->m_tcp_client);
+
             // Wait until we have received all the necessary data from the asset server:
             // - sprite pack
             // - font pack
             // - palette pack
             // - script binary
-            // - house meta data
 
             // Once we have received a message from the server with type MSG_TYPE_DOWNLOAD_COMPLETE, then we know
             // that the download has finished.

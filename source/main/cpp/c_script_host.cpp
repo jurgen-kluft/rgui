@@ -9,7 +9,7 @@
 #include "main/c_script_host.h"
 
 #include "ccova/vm.h"
-#include "ccova/image.h"
+#include "ccova/program_image.h"
 
 namespace ncore
 {
@@ -77,10 +77,10 @@ namespace ncore
                 break;
             case EXTERN_DRAW_DATE:
                 {
-                    const u16 year        = get_year(app_data->m_house_meta);
-                    const u8  month       = get_month(app_data->m_house_meta);
-                    const u8  day         = get_day(app_data->m_house_meta);
-                    const u8  day_of_week = get_day_of_week(app_data->m_house_meta);
+                    const u16 year        = get_year(app_data->m_house);
+                    const u8  month       = get_month(app_data->m_house);
+                    const u8  day         = get_day(app_data->m_house);
+                    const u8  day_of_week = get_day_of_week(app_data->m_house);
 
                     const u32 color    = pop_u32(vm);
                     const u16 y        = pop_u16(vm);
@@ -92,9 +92,9 @@ namespace ncore
                 break;
             case EXTERN_DRAW_TIME:
                 {
-                    const u8 hour   = get_hour(app_data->m_house_meta);
-                    const u8 minute = get_minute(app_data->m_house_meta);
-                    const u8 second = get_second(app_data->m_house_meta);
+                    const u8 hour   = get_hour(app_data->m_house);
+                    const u8 minute = get_minute(app_data->m_house);
+                    const u8 second = get_second(app_data->m_house);
 
                     const u32 color    = pop_u32(vm);
                     const u16 y        = pop_u16(vm);

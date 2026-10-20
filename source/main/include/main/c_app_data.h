@@ -38,8 +38,8 @@ namespace ncore
     enum fsm_state_enum_t
     {
         FSM_STATE_NONE = 0,              // No state, initial state before any initialization
-        FSM_STATE_HANDLE_LITTLE_FS,      // Initialize the LittleFS
-        FSM_STATE_HANDLE_SD_CARD,        // Initialize the SD card
+        FSM_STATE_HANDLE_LITTLE_FS,      // Initialize LittleFS
+        FSM_STATE_HANDLE_SD_CARD,        // Initialize SD card
         FSM_STATE_VERIFY_ASSETS,         // Do we have all the necessary assets
         FSM_STATE_CONNECT_TO_WIFI,       // First, connect to WiFi to enable network communication
         FSM_STATE_DOWNLOAD_ASSETS,       // Next, download assets from the asset server
@@ -95,6 +95,7 @@ namespace ncore
         EDATA_SOURCE_LITTLE_FS,
         EDATA_SOURCE_SD_CARD,
         EDATA_SOURCE_ASSET_SERVER,
+        EDATA_SOURCE_SENSOR_SERVER,
     };
 
     typedef void (*app_tick_fn)(app_data_t* app_data);
@@ -137,17 +138,18 @@ namespace ncore
         u32                   m_script_binary_capacity;  // capacity of allocated script binary memory
         linked_program_t*     m_script_binary;           // pointer to the script binary in PSRAM
         house_t*              m_house;                   // pointer to the house meta data in SRAM
+        edata_source_t        m_house_global_source;     // Source of the house global data (e.g., LITTLE_FS, SD_CARD, ASSET_SERVER)
         edata_source_t        m_house_meta_source;       // Source of the house meta data (e.g., LITTLE_FS, SD_CARD, ASSET_SERVER)
-        u32                   m_house_meta_size;         // size of the house meta data in bytes
-        u32                   m_house_meta_capacity;     // capacity of allocated house meta data memory
-        u32                   m_house_global_size;       // size of the house global data in bytes
-        u32                   m_house_global_capacity;   // capacity of allocated house global data memory
-        u32                   m_house_sensors_size;      // size of the house sensor data in bytes
-        u32                   m_house_sensors_capacity;  // capacity of allocated house sensor data memory
+        edata_source_t        m_house_sensors_source;    // Source of the house sensors data (e.g., LITTLE_FS, SD_CARD, SENSOR_SERVER)
 
         fsm_state_data_t m_state_data;                 // Current state call type (enter, update, leave)
         state_fn_t       m_state_fn[FSM_STATE_COUNT];  // Array of state functions for each application state
     };
+
+    u32 get_sprite_pack_version(app_data_t* app_data);
+    u32 get_font_pack_version(app_data_t* app_data);
+    u32 get_palette_pack_version(app_data_t* app_data);
+    u32 get_script_version(app_data_t* app_data);
 
     bool get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size, u32& script_memory_capacity);
 

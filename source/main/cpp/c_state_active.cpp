@@ -8,18 +8,17 @@ namespace ncore
     void state_active(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
         // This is the main state, this is where we:
-        // - fade-out the splash screen until black (move the separate state ?)
-        // - update the touch state
-        // - update the touch gesture state
-        // - update the WiFi manager state
-        // - read out new data from the sensors
+        // - fade-out the splash screen until black (move to separate state ?)
+        // - update touch state
+        // - update touch gesture state
+        // - update WiFi manager state
+        // - read out new data from the sensors if we have any
+        // - tick the TCP client for sensor server communication
         //   - update the home state with the newly obtained sensor data
-        // - tick the TCP clients for server communication
-        // - update any host data, like timers for the script VM
         // - update the script VM to update the application state
         // - draw the GUI to the screen
         //   - note: the script has called the GUI draw functions which where written to
-        //     a command buffer, so we just need to flush the command buffer to the screen.
+        //     a command buffer, so we just need to execute the command buffer.
         // - diff the home state, and send any changes to the server
     }
 

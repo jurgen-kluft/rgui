@@ -43,8 +43,12 @@ namespace ncore
             // - font_pack.bin
             // - palette_pack.bin
             // - script.bin
+            // - house_global.bin
+            // - house_meta.bin
+            // - house_sensors.bin
+
             const char* filename = "sprite_pack.bin";
-            if (app_data->m_sprite_pack_size == 0 || s_has_newer_version(filename, 0, app_data->m_sprite_pack->m_version))
+            if (s_has_newer_version(filename, 0, get_sprite_pack_version(app_data)))
             {
                 if (s_read_file(filename, (u8*)app_data->m_sprite_pack, app_data->m_sprite_pack_capacity, app_data->m_sprite_pack_size))
                 {
@@ -53,7 +57,7 @@ namespace ncore
             }
 
             filename = "font_pack.bin";
-            if (app_data->m_font_pack_size == 0 || s_has_newer_version(filename, 0, app_data->m_font_pack->m_version))
+            if (s_has_newer_version(filename, 0, get_font_pack_version(app_data)))
             {
                 if (s_read_file(filename, (u8*)app_data->m_font_pack, app_data->m_font_pack_capacity, app_data->m_font_pack_size))
                 {
@@ -62,7 +66,7 @@ namespace ncore
             }
 
             filename = "palette_pack.bin";
-            if (app_data->m_palette_pack_size == 0 || s_has_newer_version(filename, 0, app_data->m_palette_pack->m_version))
+            if (s_has_newer_version(filename, 0, get_palette_pack_version(app_data)))
             {
                 if (s_read_file(filename, (u8*)app_data->m_palette_pack, app_data->m_palette_pack_capacity, app_data->m_palette_pack_size))
                 {
@@ -71,7 +75,7 @@ namespace ncore
             }
 
             filename = "script.bin";
-            if (app_data->m_script_binary_size == 0 || s_has_newer_version(filename, 4, app_data->m_script_binary->m_version))
+            if (s_has_newer_version(filename, 4, get_script_version(app_data)))
             {
                 if (s_read_file(filename, (u8*)app_data->m_script_binary, app_data->m_script_binary_capacity, app_data->m_script_binary_size))
                 {
@@ -79,12 +83,30 @@ namespace ncore
                 }
             }
 
-            filename = "house.bin";
-            if (app_data->m_house_meta_size == 0 || s_has_newer_version(filename, 0, app_data->m_house_meta->m_version))
+            filename = "house_global.bin";
+            if (s_has_newer_version(filename, 0, get_house_global_version(app_data->m_house)))
             {
-                if (s_read_file(filename, (u8*)app_data->m_house_meta, app_data->m_house_meta_capacity, app_data->m_house_meta_size))
+                if (s_read_file(filename, (u8*)app_data->m_house->m_global, app_data->m_house->m_global_capacity_size, app_data->m_house->m_global_data_size))
+                {
+                    app_data->m_house_global_source = EDATA_SOURCE_SD_CARD;
+                }
+            }
+
+            filename = "house_meta.bin";
+            if (s_has_newer_version(filename, 0, get_house_meta_version(app_data->m_house)))
+            {
+                if (s_read_file(filename, (u8*)app_data->m_house->m_meta, app_data->m_house->m_meta_capacity_size, app_data->m_house->m_meta_data_size))
                 {
                     app_data->m_house_meta_source = EDATA_SOURCE_SD_CARD;
+                }
+            }
+
+            filename = "house_sensors.bin";
+            if (s_has_newer_version(filename, 0, get_house_sensors_version(app_data->m_house)))
+            {
+                if (s_read_file(filename, (u8*)app_data->m_house->m_sensors, app_data->m_house->m_sensors_capacity_size, app_data->m_house->m_sensors_data_size))
+                {
+                    app_data->m_house_sensors_source = EDATA_SOURCE_SD_CARD;
                 }
             }
 

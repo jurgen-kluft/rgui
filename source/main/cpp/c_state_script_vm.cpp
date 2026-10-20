@@ -5,7 +5,7 @@
 #include "ccore/c_math.h"
 
 #include "ccova/vm.h"
-#include "ccova/image.h"
+#include "ccova/program_image.h"
 #include "ccova/segment_memory.h"
 
 #include "main/c_app_data.h"
@@ -67,7 +67,24 @@ namespace ncore
         app_vm->m_stack.m_size     = 0;
         app_vm->m_call_frames      = (call_frame_t*)call_frames_memory;
 
-        initialize_vm(&app_vm->m_vm, app_vm->m_call_frames, call_frame_capacity, app_vm->m_frame, app_vm->m_bss, app_vm->m_external, app_vm->m_data, app_vm->m_stack);
+        vm_call_frames_t call_frames;
+        call_frames.m_capacity = call_frame_capacity;
+        call_frames.m_count    = 0;
+        call_frames.m_frames   = app_vm->m_call_frames;
+
+        vm_timers_t timers;
+        timers.m_capacity    = 8;
+        timers.m_duration_ms = (u32*)nsystem::malloc(sizeof(u32) * timers.m_capacity);
+        timers.m_end_time_ms = (u64*)nsystem::malloc(sizeof(u64) * timers.m_capacity);
+
+        vm_segments_t segments;
+        segments.m_frame    = app_vm->m_frame;
+        segments.m_bss      = app_vm->m_bss;
+        segments.m_external = app_vm->m_external;
+        segments.m_data     = app_vm->m_data;
+        segments.m_stack    = app_vm->m_stack;
+
+        initialize_vm(&app_vm->m_vm, call_frames, timers, segments);
         register_extern_dispatcher(&app_vm->m_vm, app_data, extern_host_fn);
 
         to_state_next(&app_data->m_state_data);
@@ -77,7 +94,7 @@ namespace ncore
     {
         app_vm_t* app_vm = &s_app_vm;
 
-        run_vm(&app_vm->m_vm, app_vm->linked_program);
+        run_vm(&app_vm->m_vm, now_ms);
     }
 
 }  // namespace ncore

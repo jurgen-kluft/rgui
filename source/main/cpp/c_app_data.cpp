@@ -9,6 +9,8 @@
 #include "ccore/c_memory.h"
 #include "ccore/c_random.h"
 
+#include "ccova/linked_program.h"
+
 #include "rwifi/c_wifi_mgr.h"
 #include "rwifi/c_tcp_client.h"
 
@@ -46,15 +48,15 @@ namespace ncore
         app_data->m_font_pack_capacity     = 64 * cKB;  // PSRAM capacity of allocated font pack memory
         app_data->m_palette_pack_capacity  = 8 * cKB;   // SRAM capacity of allocated palette pack memory
         app_data->m_script_binary_capacity = 32 * cKB;  // SRAM capacity of allocated script binary memory
-        app_data->m_house_meta_capacity    = 4 * cKB;   // SRAM capacity of allocated house meta memory
-        app_data->m_house_global_capacity  = 2 * cKB;   // SRAM capacity of allocated house global memory
-        app_data->m_house_sensors_capacity = 2 * cKB;   // SRAM capacity of allocated house sensors memory
         app_data->m_sprite_pack            = (ngx2::sprite_pack_t*)nsystem::alloc_psram_aligned(app_data->m_sprite_pack_capacity, 32);
         app_data->m_font_pack              = (ngx2::font_pack_t*)nsystem::alloc_psram_aligned(app_data->m_font_pack_capacity, 32);
         app_data->m_palette_pack           = (ngx2::palette_pack_t*)nsystem::alloc_psram_aligned(app_data->m_palette_pack_capacity, 32);
         app_data->m_script_binary          = (linked_program_t*)nsystem::malloc(app_data->m_script_binary_capacity);
 
-        app_data->m_house = alloc_house(app_data->m_house_meta_capacity, app_data->m_house_global_capacity, app_data->m_house_sensors_capacity);
+        const u32 house_meta_capacity    = 4 * cKB;  // SRAM capacity of allocated house meta memory
+        const u32 house_global_capacity  = 2 * cKB;  // SRAM capacity of allocated house global memory
+        const u32 house_sensors_capacity = 2 * cKB;  // SRAM capacity of allocated house sensors memory
+        app_data->m_house                = alloc_house(house_meta_capacity, house_global_capacity, house_sensors_capacity);
 
         fsm_state_data_t* state_data = &app_data->m_state_data;
         state_data->m_state_data     = 0;
@@ -75,6 +77,9 @@ namespace ncore
         app_data->m_state_fn[FSM_STATE_INITIALIZE_SCRIPT_VM] = state_initialize_script_vm;
         app_data->m_state_fn[FSM_STATE_ACTIVE]               = state_active;
         app_data->m_state_fn[FSM_STATE_ERROR]                = state_error;
+
+        app_data->m_tcp_socket = nnet::setup_default(&app_data->m_tcp_client_config);
+        nnet::setup(app_data->m_tcp_client, &app_data->m_tcp_client_config, app_data->m_tcp_socket);
     }
 
     void register_app_tick_fn(app_data_t* app_data, app_tick_fn fn)
@@ -84,6 +89,11 @@ namespace ncore
             app_data->m_app_tick_fn[app_data->m_app_tick_fn_count++] = fn;
         }
     }
+
+    u32 get_sprite_pack_version(app_data_t* app_data) { return app_data != nullptr ? app_data->m_sprite_pack->m_version : 0; }
+    u32 get_font_pack_version(app_data_t* app_data) { return app_data != nullptr ? app_data->m_font_pack->m_version : 0; }
+    u32 get_palette_pack_version(app_data_t* app_data) { return app_data != nullptr ? app_data->m_palette_pack->m_version : 0; }
+    u32 get_script_version(app_data_t* app_data) { return app_data != nullptr ? app_data->m_script_binary->m_version : 0; }
 
     bool get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size, u32& script_memory_capacity)
     {

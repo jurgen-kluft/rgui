@@ -349,7 +349,10 @@ namespace ncore
         {
             ngx2::sprite_t* sprite = ngx2::get_sprite(g_renderer.m_sprite_pack, (u32)spriteId);
             if (!sprite)
+            {
+                // We should maybe use a default sprite here to easily spot missing assets in the renderer
                 return;
+            }
 
             g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                        = DRAW_CMD_SPRITE_SCALED;
             g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                          = 0;

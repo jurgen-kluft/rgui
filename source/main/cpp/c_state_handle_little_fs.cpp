@@ -75,6 +75,9 @@ namespace ncore
             // - font_pack.bin
             // - palette_pack.bin
             // - script.bin
+            // - house_global.bin
+            // - house_meta.bin
+            // - house_sensors.bin
         }
     }
 

@@ -38,9 +38,20 @@ namespace ncore
                 {
                     nlcd::sdcard_write_file("script.bin", (u8*)app_data->m_script_binary, app_data->m_script_binary_size);
                 }
-                if (app_data->m_house_meta_size > 0 && app_data->m_house_meta_source != EDATA_SOURCE_SD_CARD)
+                
+                if (app_data->m_house->m_global_data_size > 0 && app_data->m_house_global_source != EDATA_SOURCE_SD_CARD)
                 {
-                    nlcd::sdcard_write_file("house.bin", (u8*)app_data->m_house_meta, app_data->m_house_meta_size);
+                    nlcd::sdcard_write_file("house_global.bin", (u8*)app_data->m_house->m_global, app_data->m_house->m_global_data_size);
+                }
+
+                if (app_data->m_house->m_meta_data_size > 0 && app_data->m_house_meta_source != EDATA_SOURCE_SD_CARD)
+                {
+                    nlcd::sdcard_write_file("house_meta.bin", (u8*)app_data->m_house->m_meta, app_data->m_house->m_meta_data_size);
+                }
+
+                if (app_data->m_house->m_sensors_data_size > 0 && app_data->m_house_sensors_source != EDATA_SOURCE_SD_CARD)
+                {
+                    nlcd::sdcard_write_file("house_sensors.bin", (u8*)app_data->m_house->m_sensors, app_data->m_house->m_sensors_data_size);
                 }
             }
 
@@ -62,9 +73,17 @@ namespace ncore
                 {
                     nlittlefs::file_save("script.bin", (u8*)app_data->m_script_binary, app_data->m_script_binary_size);
                 }
-                if (app_data->m_house_meta_size > 0 && app_data->m_house_meta_source != EDATA_SOURCE_LITTLE_FS)
+                if (app_data->m_house->m_global_data_size > 0 && app_data->m_house_global_source != EDATA_SOURCE_LITTLE_FS)
                 {
-                    nlittlefs::file_save("house.bin", (u8*)app_data->m_house_meta, app_data->m_house_meta_size);
+                    nlittlefs::file_save("house_global.bin", (u8*)app_data->m_house->m_global, app_data->m_house->m_global_data_size);
+                }
+                if (app_data->m_house->m_meta_data_size > 0 && app_data->m_house_meta_source != EDATA_SOURCE_LITTLE_FS)
+                {
+                    nlittlefs::file_save("house_meta.bin", (u8*)app_data->m_house->m_meta, app_data->m_house->m_meta_data_size);
+                }
+                if (app_data->m_house->m_sensors_data_size > 0 && app_data->m_house_sensors_source != EDATA_SOURCE_LITTLE_FS)
+                {
+                    nlittlefs::file_save("house_sensors.bin", (u8*)app_data->m_house->m_sensors, app_data->m_house->m_sensors_data_size);
                 }
             }
 

@@ -77,24 +77,23 @@ namespace ncore
         app_data_t* app_data = (app_data_t*)user_ctx;
         switch (data_type)
         {
-            case DATA_TYPE_SCRIPT_BINARY:
-                app_data->m_script_binary_size = buffer.m_length;
-                break;
-            case DATA_TYPE_SPRITE_PACK:
-                app_data->m_sprite_pack_size = buffer.m_length;
-                break;
-            case DATA_TYPE_FONT_PACK:
-                app_data->m_font_pack_size = buffer.m_length;
-                break;
-            case DATA_TYPE_PALETTE_PACK:
-                app_data->m_palette_pack_size = buffer.m_length;
-                break;
+            case DATA_TYPE_SCRIPT_BINARY: app_data->m_script_binary_size = buffer.m_length; break;
+            case DATA_TYPE_SPRITE_PACK: app_data->m_sprite_pack_size = buffer.m_length; break;
+            case DATA_TYPE_FONT_PACK: app_data->m_font_pack_size = buffer.m_length; break;
+            case DATA_TYPE_PALETTE_PACK: app_data->m_palette_pack_size = buffer.m_length; break;
         }
     }
 
-    static void on_download_abort(void* on_abort_context, u32 data_type, nnet::buffer_t buffer)
+    static void on_download_abort(void* user_ctx, u32 data_type, nnet::buffer_t buffer)
     {
-        // nop
+        app_data_t* app_data = (app_data_t*)user_ctx;
+        switch (data_type)
+        {
+            case DATA_TYPE_SCRIPT_BINARY: app_data->m_script_binary_size = 0; break;
+            case DATA_TYPE_SPRITE_PACK: app_data->m_sprite_pack_size = 0; break;
+            case DATA_TYPE_FONT_PACK: app_data->m_font_pack_size = 0; break;
+            case DATA_TYPE_PALETTE_PACK: app_data->m_palette_pack_size = 0; break;
+        }
     }
 
     // 888b     d888 8888888888 .d8888b.   .d8888b.        d8888  .d8888b.  8888888888 .d8888b.
@@ -110,12 +109,13 @@ namespace ncore
     {
         app_data_t* app_data = (app_data_t*)user_ctx;
 
+        buffer.m_buffer = nullptr;
+        buffer.m_length = 0;
+
         switch (data_type)
         {
-            case nnet::MSG_TYPE_DOWNLOAD_COMPLETE:
-                app_data->m_download_finished = true;
-                buffer.m_buffer               = nullptr;
-                buffer.m_length               = 0;
+            case nnet::MSG_TYPE_DOWNLOAD_COMPLETE: 
+                // The download complete message buffer is not needed
                 return true;
         }
         return false;
@@ -123,7 +123,14 @@ namespace ncore
 
     static void on_messages_complete(void* user_ctx, u32 data_type, nnet::buffer_t buffer)
     {
-        // todo
+        app_data_t* app_data = (app_data_t*)user_ctx;
+        switch (data_type)
+        {
+            case nnet::MSG_TYPE_DOWNLOAD_COMPLETE:
+                // Mark asset download as finished
+                app_data->m_download_finished = true;
+                break;
+        }
     }
 
     static void on_messages_abort(void* on_abort_context, u32 data_type, nnet::buffer_t buffer)
@@ -152,9 +159,6 @@ namespace ncore
     {
         if (state_data->m_state_data == ASSET_SERVER_STATE_SETUP)
         {
-            app_data->m_tcp_socket = nnet::setup_default(&app_data->m_tcp_client_config);
-            nnet::setup(app_data->m_tcp_client, &app_data->m_tcp_client_config, app_data->m_tcp_socket);
-
             // Create the tcp client plugins for handshake and downloading, and register them.
             // Also set our download complete callback
             nnet::tcp_recv_plugin_t* download_plugin = nnet::new_download_plugin(on_download_begin, on_download_complete, on_download_abort, &app_data);
@@ -190,11 +194,20 @@ namespace ncore
             nnet::msg_init(download_request, nnet::MSG_TYPE_DOWNLOAD_REQUEST, mac);
 
             data_type_version_t assets[DATA_TYPE_COUNT];
+
+            // Note:
+            // Here we are initializing the asset versions to 0, indicating that we do not have any local copies yet.
+            // Then we will update these versions with the actual versions of the assets we have locally, if any.
+
+            assets[DATA_TYPE_SCRIPT_BINARY] = {DATA_TYPE_SCRIPT_BINARY, 0};
             assets[DATA_TYPE_SPRITE_PACK]   = {DATA_TYPE_SPRITE_PACK, 0};
             assets[DATA_TYPE_FONT_PACK]     = {DATA_TYPE_FONT_PACK, 0};
             assets[DATA_TYPE_PALETTE_PACK]  = {DATA_TYPE_PALETTE_PACK, 0};
-            assets[DATA_TYPE_SCRIPT_BINARY] = {DATA_TYPE_SCRIPT_BINARY, 0};
 
+            if (app_data->m_script_binary_size > 0 && app_data->m_script_binary != nullptr)
+            {
+                assets[DATA_TYPE_SCRIPT_BINARY] = {DATA_TYPE_SCRIPT_BINARY, app_data->m_script_binary->m_version};
+            }
             if (app_data->m_sprite_pack_size > 0 && app_data->m_sprite_pack != nullptr)
             {
                 assets[DATA_TYPE_SPRITE_PACK] = {DATA_TYPE_SPRITE_PACK, app_data->m_sprite_pack->m_version};
@@ -207,18 +220,15 @@ namespace ncore
             {
                 assets[DATA_TYPE_PALETTE_PACK] = {DATA_TYPE_PALETTE_PACK, app_data->m_palette_pack->m_version};
             }
-            if (app_data->m_script_binary_size > 0 && app_data->m_script_binary != nullptr)
-            {
-                assets[DATA_TYPE_SCRIPT_BINARY] = {DATA_TYPE_SCRIPT_BINARY, app_data->m_script_binary->m_version};
-            }
 
+            // Send the asset versions to the asset server as part of the download request.
             for (i32 i = 0; i < DATA_TYPE_COUNT; ++i)
             {
                 nnet::msg_write(download_request, assets[i].type);
                 nnet::msg_write(download_request, assets[i].version);
             }
-
             nnet::msg_final(download_request);
+
             if (nnet::send(app_data->m_tcp_client, download_request.Data, download_request.Size))
             {
                 state_data->m_state_data = ASSET_SERVER_STATE_DOWNLOADING;

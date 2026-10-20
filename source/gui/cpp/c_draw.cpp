@@ -2,6 +2,8 @@
 #include "ccore/c_printf.h"
 #include "rcore/c_system.h"
 
+#include "lib_guition/c_lcd.h"
+
 #include "cgx2/c_slice_based_renderer.h"
 
 #include "gui/c_draw.h"
@@ -10,12 +12,6 @@ namespace ncore
 {
     namespace ngui
     {
-        enum fb_state_t
-        {
-            FB_IDLE,  // Buffer is ready to be written to
-            FB_READY  // Buffer is fully rendered, waiting for the next VSYNC swap
-        };
-
         typedef u8  draw_cmd_t;
         typedef u16 draw_cmd_bits_t;
 
@@ -76,8 +72,9 @@ namespace ncore
             u16 color;       // Color of the value text
             u8  font_index;  // Index of the font in the asset database
             u8  size;        // Size of the value text
-            u8  reserved;    // Reserved for future use
             u8  unit;        // Unit of the value (e.g., 0 for none, 1 for px, etc.)
+            u8  reserved0;   // Reserved for future use
+            u16 reserved1;   // Reserved for future use
             i32 value;       // Integer value to be drawn
         };
 
@@ -89,22 +86,34 @@ namespace ncore
             draw_value_args_t  value_args;
         };
 
+        enum cmd_buffer_state_t
+        {
+            CMD_BUFFER_IDLE,       // Buffer is ready to be written to
+            CMD_BUFFER_WAITING,    // Buffer is filled but not yet rendered
+            CMD_BUFFER_RENDERED,   // Buffer is fully rendered into the framebuffer
+            CMD_BUFFER_PRESENTED,  // Buffer has been presented on the screen
+        };
+
+        struct cmd_buffer_t
+        {
+            volatile u16     m_state;
+            u16              m_cmd_count;
+            draw_cmd_t*      m_cmd_buffer;
+            draw_cmd_bits_t* m_cmd_bits;
+            draw_cmd_args_t* m_cmd_args;
+        };
+
         struct renderer_t
         {
-            volatile fb_state_t   m_fb_state;
             u16                   m_fb_width;
             u16                   m_fb_height;
-            u16*                  m_fb;
-            u16                   m_current_fb;
-            u16                   m_cmd_count;
             u16*                  m_sram_canvas;
             u16                   m_sram_canvas_height;
             u16                   m_sram_canvas_width;
-            i32                   m_strbuffer_size;
-            char*                 m_strbuffer;   // 512
-            draw_cmd_t*           m_cmd_buffer;  // cMaxCmdCount * 1 = 128
-            draw_cmd_bits_t*      m_cmd_bits;    // cMaxCmdCount * 2 = 256
-            draw_cmd_args_t*      m_cmd_args;    // cMaxCmdCount * 16 = 2048
+            u16                   m_current_cmd_buffer;
+            i16                   m_strbuffer_size;
+            char*                 m_strbuffer;  // 512
+            cmd_buffer_t          m_cmd_buffer[2];
             ngx2::sprite_pack_t*  m_sprite_pack;
             ngx2::font_pack_t*    m_font_pack;
             ngx2::palette_pack_t* m_palette_pack;
@@ -114,24 +123,31 @@ namespace ncore
 
         static renderer_t g_renderer;
 
-        void init_renderer(u16 fb_width, u16 fb_height, u16 sram_canvas_height, ngx2::sprite_pack_t* sprite_pack, ngx2::font_pack_t* font_pack, ngx2::palette_pack_t* palette_pack)
+        void init_renderer(u16 sram_canvas_height, ngx2::sprite_pack_t* sprite_pack, ngx2::font_pack_t* font_pack, ngx2::palette_pack_t* palette_pack)
         {
-            g_renderer.m_fb_state   = FB_IDLE;
-            g_renderer.m_fb_width   = fb_width;
-            g_renderer.m_fb_height  = fb_height;
-            g_renderer.m_current_fb = 0;
-            g_renderer.m_cmd_count  = 0;
+            g_renderer.m_current_cmd_buffer = 0;
+
+            g_renderer.m_fb_height = nlcd::height();
+            g_renderer.m_fb_width  = nlcd::width();
 
             // Allocate SRAM canvas (60 * 480 * 2 = 57600 bytes)
             g_renderer.m_sram_canvas_height = sram_canvas_height;
-            g_renderer.m_sram_canvas_width  = fb_width;
-            g_renderer.m_sram_canvas        = (u16*)nsystem::malloc(sram_canvas_height * fb_width * sizeof(u16));
+            g_renderer.m_sram_canvas_width  = g_renderer.m_fb_width;
+            g_renderer.m_sram_canvas        = (u16*)nsystem::malloc(sram_canvas_height * g_renderer.m_fb_width * sizeof(u16));
 
-            // Allocate command buffer and arguments
-            // Allocate command buffer and arguments (cMaxCmdCount * (1 + 2 + 16) = 2304 bytes)
-            g_renderer.m_cmd_bits   = (draw_cmd_bits_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_bits_t));
-            g_renderer.m_cmd_buffer = (draw_cmd_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_t));
-            g_renderer.m_cmd_args   = (draw_cmd_args_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_args_t));
+            // Allocate command buffers and arguments
+            //    cMaxCmdCount * 1  = 128 bytes
+            //    cMaxCmdCount * 2  = 256 bytes
+            //    cMaxCmdCount * 16 = 2048 bytes
+            // Total: 2 * (128 + 256 + 2048) = 4864 bytes
+            for (i32 i = 0; i < 2; ++i)
+            {
+                g_renderer.m_cmd_buffer[i].m_state      = CMD_BUFFER_IDLE;
+                g_renderer.m_cmd_buffer[i].m_cmd_count  = 0;
+                g_renderer.m_cmd_buffer[i].m_cmd_bits   = (draw_cmd_bits_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_bits_t));
+                g_renderer.m_cmd_buffer[i].m_cmd_buffer = (draw_cmd_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_t));
+                g_renderer.m_cmd_buffer[i].m_cmd_args   = (draw_cmd_args_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_args_t));
+            }
 
             g_renderer.m_strbuffer_size = 512;
             g_renderer.m_strbuffer      = (char*)nsystem::malloc(g_renderer.m_strbuffer_size);  // Buffer for multiple value strings representation
@@ -145,9 +161,10 @@ namespace ncore
         {
             renderer_t& r = g_renderer;
 
-            if (r.m_fb_state == FB_IDLE)
+            if (r.m_cmd_buffer[r.m_current_cmd_buffer].m_state == CMD_BUFFER_IDLE)
             {
-                r.m_cmd_count = 0;
+                r.m_cmd_buffer[r.m_current_cmd_buffer].m_cmd_count = 0;
+                return;
             }
         }
 
@@ -155,17 +172,11 @@ namespace ncore
         {
             renderer_t& r = g_renderer;
 
-            // Skip entirely if the previous frame hasn't been picked up by the VSYNC interrupt yet
-            if (r.m_fb_state != FB_IDLE)
+            // Skip if the previous frame hasn't been picked up by the VSYNC interrupt yet
+            if (r.m_cmd_buffer[1 - r.m_current_cmd_buffer].m_state != CMD_BUFFER_IDLE)
             {
                 return;
             }
-
-            // TODO
-            // We could double buffer the commands, and when a frame is done compare it to
-            // the previous frame, if nothing has changed, we could skip rendering entirely.
-            // So we really don't want to modify the command-buffer, also each command should
-            // correctly zero out its arguments since they are variable sized unions.
 
             // TODO
             // Pre-pass, first go over all the commands and determine which slices they intersect,
@@ -174,72 +185,84 @@ namespace ncore
             // Each command that is executed will clear its coverage bitmask, and if it becomes zero,
             // we can skip it during the next slice rendering.
 
-            const i16 num_slices = (r.m_fb_height + r.m_sram_canvas_height - 1) / r.m_sram_canvas_height;
-            for (i16 i = 0; i < num_slices; i++)
+            u16* fb        = nullptr;
+            u16  fb_width  = 0;
+            u16  fb_height = 0;
+            nlcd::draw_begin_frame(fb, fb_width, fb_height);
             {
-                const i16 slice_y_start = i * r.m_sram_canvas_height;
-                const i16 slice_y_end   = slice_y_start + r.m_sram_canvas_height - 1;
+                cmd_buffer_t& cmds = r.m_cmd_buffer[r.m_current_cmd_buffer];
 
-                g_memclr(r.m_sram_canvas, r.m_sram_canvas_height * r.m_sram_canvas_width * sizeof(u16));
-                for (i16 c = 0; c < r.m_cmd_count; c++)
+                const i16 num_slices = (fb_height + r.m_sram_canvas_height - 1) / r.m_sram_canvas_height;
+                for (i16 i = 0; i < num_slices; i++)
                 {
-                    draw_cmd_t& cmd = r.m_cmd_buffer[c];
-                    if (cmd == DRAW_CMD_NOP)
-                        continue;
+                    const i16 slice_y_start = i * r.m_sram_canvas_height;
+                    const i16 slice_y_end   = slice_y_start + r.m_sram_canvas_height - 1;
 
-                    const draw_cmd_args_t& args   = r.m_cmd_args[c];
-                    intersect_result_t     result = intersects_slice(r, cmd, &args, slice_y_start, slice_y_end);
-                    if (result == INTERSECT_NO)
-                        continue;
-
-                    switch (cmd)
+                    g_memclr(r.m_sram_canvas, r.m_sram_canvas_height * r.m_sram_canvas_width * sizeof(u16));
+                    for (i16 c = 0; c < cmds.m_cmd_count; c++)
                     {
-                        case DRAW_CMD_BKGRND_COLOR:
-                            {
-                                draw_bkgrnd_args_t* bkgrnd_args = (draw_bkgrnd_args_t*)&args.bkgrnd_args;
-                                g_memset(r.m_sram_canvas, bkgrnd_args->color, r.m_sram_canvas_height * r.m_sram_canvas_width * sizeof(u16));
-                                break;
-                            }
-                        case DRAW_CMD_SPRITE:
-                            {
-                                draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                //
-                                break;
-                            }
-                        case DRAW_CMD_SPRITE_SCALED:
-                            {
-                                draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                //
-                                break;
-                            }
-                        case DRAW_CMD_TEXT:
-                            {
-                                draw_text_args_t* text_args = (draw_text_args_t*)&args.text_args;
-                                //
-                                break;
-                            }
-                        case DRAW_CMD_VALUE:
-                            {
-                                draw_value_args_t* value_args = (draw_value_args_t*)&args.value_args;
-                                // TO be implemented: Custom drawing logic for value to the SRAM canvas slice
-                                break;
-                            }
+                        draw_cmd_t& cmd = cmds.m_cmd_buffer[c];
+                        if (cmd == DRAW_CMD_NOP)
+                            continue;
+
+                        const draw_cmd_args_t& args   = cmds.m_cmd_args[c];
+                        intersect_result_t     result = intersects_slice(r, cmd, &args, slice_y_start, slice_y_end);
+                        if (result == INTERSECT_NO)
+                            continue;
+
+                        switch (cmd)
+                        {
+                            case DRAW_CMD_BKGRND_COLOR:
+                                {
+                                    draw_bkgrnd_args_t* bkgrnd_args = (draw_bkgrnd_args_t*)&args.bkgrnd_args;
+                                    g_memset(r.m_sram_canvas, bkgrnd_args->color, r.m_sram_canvas_height * r.m_sram_canvas_width * sizeof(u16));
+                                    break;
+                                }
+                            case DRAW_CMD_SPRITE:
+                                {
+                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                    //
+                                    break;
+                                }
+                            case DRAW_CMD_SPRITE_SCALED:
+                                {
+                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                    //
+                                    break;
+                                }
+                            case DRAW_CMD_TEXT:
+                                {
+                                    draw_text_args_t* text_args = (draw_text_args_t*)&args.text_args;
+                                    //
+                                    break;
+                                }
+                            case DRAW_CMD_VALUE:
+                                {
+                                    draw_value_args_t* value_args = (draw_value_args_t*)&args.value_args;
+                                    // TO be implemented: Custom drawing logic for value to the SRAM canvas slice
+                                    break;
+                                }
+                        }
+
+                        if (result == INTERSECT_DONE)
+                        {
+                            cmd = DRAW_CMD_NOP;
+                            continue;
+                        }
                     }
 
-                    if (result == INTERSECT_DONE)
-                    {
-                        cmd = DRAW_CMD_NOP;
-                        continue;
-                    }
+                    // Blit the fast SRAM slice into our PSRAM framebuffer
+                    u16* psram_target = fb + (slice_y_start * fb_width);
+                    g_memcpy(psram_target, r.m_sram_canvas, r.m_sram_canvas_height * fb_width * sizeof(u16));
                 }
 
-                // Blit the fast SRAM slice into our PSRAM framebuffer
-                u16* psram_target = r.m_fb + (slice_y_start * r.m_fb_width);
-                g_memcpy(psram_target, r.m_sram_canvas, r.m_sram_canvas_height * r.m_fb_width * sizeof(u16));
+                nlcd::draw_end_frame();
             }
+            // Mark the current command buffer as waiting to be presented
+            r.m_cmd_buffer[r.m_current_cmd_buffer].m_state = CMD_BUFFER_WAITING;
 
-            // The background VSYNC interrupt callback will handle the actual swap.
-            r.m_fb_state = FB_READY;
+            // Switch to the other command buffer for the next frame
+            r.m_current_cmd_buffer = 1 - r.m_current_cmd_buffer;
         }
 
         enum intersect_result_t
@@ -294,10 +317,11 @@ namespace ncore
 
         void clear_background(u32 color)
         {
-            g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                 = DRAW_CMD_BKGRND_COLOR;
-            g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                   = 0;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].bkgrnd_args.color = color;
-            g_renderer.m_cmd_count++;
+            cmd_buffer_t& cmds                                  = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            cmds.m_cmd_buffer[cmds.m_cmd_count]                 = DRAW_CMD_BKGRND_COLOR;
+            cmds.m_cmd_bits[cmds.m_cmd_count]                   = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].bkgrnd_args.color = color;
+            cmds.m_cmd_count++;
         }
 
         void draw_background(u16 spriteId)
@@ -306,25 +330,26 @@ namespace ncore
             if (!sprite)
                 return;
 
+            cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
             if (sprite->width == g_renderer.m_fb_width && sprite->height == g_renderer.m_fb_height)
             {
-                g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                        = DRAW_CMD_SPRITE;
-                g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                          = 0;
-                g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.sprite_index = spriteId;
-                g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.x            = 0;
-                g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.y            = 0;
-                g_renderer.m_cmd_count++;
+                cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE;
+                cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = 0;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = 0;
+                cmds.m_cmd_count++;
             }
             else
             {
-                g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                        = DRAW_CMD_SPRITE_SCALED;
-                g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                          = 0;
-                g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.sprite_index = spriteId;
-                g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.x            = 0;
-                g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.y            = 0;
-                g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.w            = g_renderer.m_fb_width;
-                g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.h            = g_renderer.m_fb_height;
-                g_renderer.m_cmd_count++;
+                cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE_SCALED;
+                cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = 0;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = 0;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = g_renderer.m_fb_width;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = g_renderer.m_fb_height;
+                cmds.m_cmd_count++;
             }
         }
 
@@ -334,15 +359,17 @@ namespace ncore
             if (!sprite)
                 return;
 
-            g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                        = DRAW_CMD_SPRITE;
-            g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                          = 0;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.sprite_index = spriteId;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.x            = x;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.y            = y;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.w            = 0;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.h            = 0;
+            cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
 
-            g_renderer.m_cmd_count++;
+            cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE;
+            cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = x;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = y;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = 0;
+
+            cmds.m_cmd_count++;
         }
 
         void draw_sprite(u16 spriteId, u16 x, u16 y, u16 w, u16 h)
@@ -354,14 +381,16 @@ namespace ncore
                 return;
             }
 
-            g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                        = DRAW_CMD_SPRITE_SCALED;
-            g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                          = 0;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.sprite_index = spriteId;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.x            = x;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.y            = y;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.w            = w;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].sprite_args.h            = h;
-            g_renderer.m_cmd_count++;
+            cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+
+            cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE_SCALED;
+            cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = x;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = y;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = w;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = h;
+            cmds.m_cmd_count++;
         }
 
         void draw_text(u8 fontId, u16 size, const u8* text, u16 x, u16 y, u32 color)
@@ -370,15 +399,17 @@ namespace ncore
             if (!font)
                 return;
 
-            g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                    = DRAW_CMD_TEXT;
-            g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                      = 0;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.font_index = fontId;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.size       = size;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.x          = x;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.text       = text;
-            g_renderer.m_cmd_count++;
+            cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+
+            cmds.m_cmd_buffer[cmds.m_cmd_count]                    = DRAW_CMD_TEXT;
+            cmds.m_cmd_bits[cmds.m_cmd_count]                      = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.font_index = fontId;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.size       = size;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.x          = x;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.y          = y;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.color      = color;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.text       = text;
+            cmds.m_cmd_count++;
         }
 
         void draw_date(u8 fontId, u16 size, u16 x, u16 y, u32 color, u16 year, u8 month, u8 day, u8 day_of_week)
@@ -387,20 +418,22 @@ namespace ncore
             if (!font)
                 return;
 
-            g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                    = DRAW_CMD_TEXT;
-            g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                      = 0;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.font_index = fontId;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.size       = size;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.x          = x;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
+            cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
 
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.date.year        = year;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.date.month       = month;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.date.day         = day;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.date.day_of_week = day_of_week;
+            cmds.m_cmd_buffer[cmds.m_cmd_count]                    = DRAW_CMD_TEXT;
+            cmds.m_cmd_bits[cmds.m_cmd_count]                      = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.font_index = fontId;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.size       = size;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.x          = x;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.y          = y;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.color      = color;
 
-            g_renderer.m_cmd_count++;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.date.year        = year;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.date.month       = month;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.date.day         = day;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.date.day_of_week = day_of_week;
+
+            cmds.m_cmd_count++;
         }
 
         void draw_time(u8 fontId, u16 size, u16 x, u16 y, u32 color, u8 hour, u8 minute, u8 second)
@@ -409,19 +442,20 @@ namespace ncore
             if (!font)
                 return;
 
-            g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                    = DRAW_CMD_TEXT;
-            g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                      = 0;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.font_index = fontId;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.size       = size;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.x          = x;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.y          = y;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.color      = color;
+            cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
 
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.time.hour   = hour;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.time.minute = minute;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].text_args.time.second = second;
+            cmds.m_cmd_buffer[cmds.m_cmd_count]                     = DRAW_CMD_TEXT;
+            cmds.m_cmd_bits[cmds.m_cmd_count]                       = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.font_index  = fontId;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.size        = size;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.x           = x;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.y           = y;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.color       = color;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.time.hour   = hour;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.time.minute = minute;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.time.second = second;
 
-            g_renderer.m_cmd_count++;
+            cmds.m_cmd_count++;
         }
 
         void draw_value(u8 fontId, u16 size, i32 value, u8 unit, u16 x, u16 y, u32 color)
@@ -430,17 +464,19 @@ namespace ncore
             if (!font)
                 return;
 
-            g_renderer.m_cmd_buffer[g_renderer.m_cmd_count]                     = DRAW_CMD_VALUE;
-            g_renderer.m_cmd_bits[g_renderer.m_cmd_count]                       = 0;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.font_index = fontId;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.size       = size;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.x          = x;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.y          = y;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.color      = color;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.value      = value;
-            g_renderer.m_cmd_args[g_renderer.m_cmd_count].value_args.unit       = unit;
+            cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
 
-            g_renderer.m_cmd_count++;
+            cmds.m_cmd_buffer[cmds.m_cmd_count]                     = DRAW_CMD_VALUE;
+            cmds.m_cmd_bits[cmds.m_cmd_count]                       = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].value_args.font_index = fontId;
+            cmds.m_cmd_args[cmds.m_cmd_count].value_args.size       = size;
+            cmds.m_cmd_args[cmds.m_cmd_count].value_args.x          = x;
+            cmds.m_cmd_args[cmds.m_cmd_count].value_args.y          = y;
+            cmds.m_cmd_args[cmds.m_cmd_count].value_args.color      = color;
+            cmds.m_cmd_args[cmds.m_cmd_count].value_args.value      = value;
+            cmds.m_cmd_args[cmds.m_cmd_count].value_args.unit       = unit;
+
+            cmds.m_cmd_count++;
         }
 
     }  // namespace ngui

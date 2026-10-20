@@ -7,10 +7,10 @@
 
 namespace ncore
 {
-    namespace nmui
+    namespace ngfx
     {
         // BPP Configuration ID Sub-Field (Bits [15:12])
-        enum display_bpp_t
+        enum img_bpp_t
         {
             BPP_1  = 0x0,  // 1 bit per pixel
             BPP_2  = 0x1,  // 2 bits per pixel (e.g., multi-color E-Paper)
@@ -23,7 +23,7 @@ namespace ncore
         };
 
         // Endianness Sub-Field (Bits [11:10])
-        enum display_endian_t
+        enum img_endian_t
         {
             ENDIAN_LITTLE      = 0x0,  // Standard Little-Endian
             ENDIAN_BIG_SWAPPED = 0x1,  // Big-Endian byte order (SPI DMA optimized)
@@ -32,7 +32,7 @@ namespace ncore
         };
 
         // Layout Configuration Sub-Field (Bits [9:6])
-        enum display_layout_t
+        enum img_layout_t
         {
             LAYOUT_LINEAR       = 0x0,  // Standard continuous left-to-right rows
             LAYOUT_MONO_V_PAGE  = 0x1,  // Page orientation (SSD1306 vertical chunks)
@@ -42,7 +42,7 @@ namespace ncore
         };
 
         // Channel Composition Profile Sub-Field (Bits [5:0])
-        enum display_profile_t
+        enum img_profile_t
         {
             PROFILE_MONO      = 0x01,  // 1-bit monochrome channel rules
             PROFILE_GRAY_4BIT = 0x02,  // 4-bit grayscale packing
@@ -57,7 +57,7 @@ namespace ncore
 // Combines sub-fields: BPP ID [15:12], Endian [11:10], Layout [9:6], Color Profile [5:0]
 #define D_ENCODE_DISPLAY_FORMAT_16(bpp_id, endian, layout, profile) ((u16)((((bpp_id) & 0x0F) << 12) | (((endian) & 0x03) << 10) | (((layout) & 0x0F) << 6) | ((profile) & 0x3F)))
 
-        enum display_format_t
+        enum img_format_t
         {
             // --- Monochrome / Grayscale Layouts ---
             DF_MONO_V_PAGE   = D_ENCODE_DISPLAY_FORMAT_16(BPP_1, ENDIAN_LITTLE, LAYOUT_MONO_V_PAGE, PROFILE_MONO),
@@ -76,12 +76,12 @@ namespace ncore
             DF_ARGB8888 = D_ENCODE_DISPLAY_FORMAT_16(BPP_32, ENDIAN_LITTLE, LAYOUT_LINEAR, PROFILE_ARGB8888)
         };
 
-        static inline display_bpp_t     display_format_get_bpp_id(u16 format) { return static_cast<display_bpp_t>((format >> 12) & 0x0F); }
-        static inline display_endian_t  display_format_get_endian(u16 format) { return static_cast<display_endian_t>((format >> 10) & 0x03); }
-        static inline display_layout_t  display_format_get_layout(u16 format) { return static_cast<display_layout_t>((format >> 6) & 0x0F); }
-        static inline display_profile_t display_format_get_profile(u16 format) { return static_cast<display_profile_t>(format & 0x3F); }
+        static inline img_bpp_t     display_format_get_bpp_id(u16 format) { return static_cast<img_bpp_t>((format >> 12) & 0x0F); }
+        static inline img_endian_t  display_format_get_endian(u16 format) { return static_cast<img_endian_t>((format >> 10) & 0x03); }
+        static inline img_layout_t  display_format_get_layout(u16 format) { return static_cast<img_layout_t>((format >> 6) & 0x0F); }
+        static inline img_profile_t display_format_get_profile(u16 format) { return static_cast<img_profile_t>(format & 0x3F); }
 
-        static inline u8 display_bpp_to_literal_bits(display_bpp_t bpp_id)
+        static inline u8 display_bpp_to_literal_bits(img_bpp_t bpp_id)
         {
             // 16 slots corresponding to the 4-bit field depth allocation [15:12]
             static const u8 bpp_lookup_table[16] = {

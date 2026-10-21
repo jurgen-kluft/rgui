@@ -86,17 +86,8 @@ namespace ncore
             draw_value_args_t  value_args;
         };
 
-        enum cmd_buffer_state_t
-        {
-            CMD_BUFFER_IDLE,       // Buffer is ready to be written to
-            CMD_BUFFER_WAITING,    // Buffer is filled but not yet rendered
-            CMD_BUFFER_RENDERED,   // Buffer is fully rendered into the framebuffer
-            CMD_BUFFER_PRESENTED,  // Buffer has been presented on the screen
-        };
-
         struct cmd_buffer_t
         {
-            volatile u16     m_state;
             u16              m_cmd_count;
             draw_cmd_t*      m_cmd_buffer;
             draw_cmd_bits_t* m_cmd_bits;
@@ -142,7 +133,6 @@ namespace ncore
             // Total: 2 * (128 + 256 + 2048) = 4864 bytes
             for (i32 i = 0; i < 2; ++i)
             {
-                g_renderer.m_cmd_buffer[i].m_state      = CMD_BUFFER_IDLE;
                 g_renderer.m_cmd_buffer[i].m_cmd_count  = 0;
                 g_renderer.m_cmd_buffer[i].m_cmd_bits   = (draw_cmd_bits_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_bits_t));
                 g_renderer.m_cmd_buffer[i].m_cmd_buffer = (draw_cmd_t*)nsystem::malloc(cMaxCmdCount * sizeof(draw_cmd_t));
@@ -159,23 +149,25 @@ namespace ncore
 
         void draw_begin_frame()
         {
-            renderer_t& r = g_renderer;
-
-            if (r.m_cmd_buffer[r.m_current_cmd_buffer].m_state == CMD_BUFFER_IDLE)
-            {
-                r.m_cmd_buffer[r.m_current_cmd_buffer].m_cmd_count = 0;
-                return;
-            }
+            renderer_t& r                                      = g_renderer;
+            r.m_cmd_buffer[r.m_current_cmd_buffer].m_cmd_count = 0;
         }
 
         void draw_end_frame()
         {
             renderer_t& r = g_renderer;
 
-            // Skip if the previous frame hasn't been picked up by the VSYNC interrupt yet
-            if (r.m_cmd_buffer[1 - r.m_current_cmd_buffer].m_state != CMD_BUFFER_IDLE)
+            // Compare the command buffers to determine if any changes occurred.
+            cmd_buffer_t& curr_cmds = r.m_cmd_buffer[r.m_current_cmd_buffer];
+            cmd_buffer_t& prev_cmds = r.m_cmd_buffer[1 - r.m_current_cmd_buffer];
+            if (curr_cmds.m_cmd_count == prev_cmds.m_cmd_count)
             {
-                return;
+                const s8 comparison = g_memcmp(curr_cmds.m_cmd_buffer, prev_cmds.m_cmd_buffer, curr_cmds.m_cmd_count * sizeof(draw_cmd_t));
+                if (comparison == 0)
+                {
+                    // No changes detected, skip rendering this frame
+                    return;
+                }
             }
 
             // TODO
@@ -185,10 +177,10 @@ namespace ncore
             // Each command that is executed will clear its coverage bitmask, and if it becomes zero,
             // we can skip it during the next slice rendering.
 
-            u16* fb        = nullptr;
-            u16  fb_width  = 0;
-            u16  fb_height = 0;
-            nlcd::draw_begin_frame(fb, fb_width, fb_height);
+            u16* fb        = nlcd::framebuffer();
+            u16  fb_width  = nlcd::width();
+            u16  fb_height = nlcd::height();
+            nlcd::frame_begin();
             {
                 cmd_buffer_t& cmds = r.m_cmd_buffer[r.m_current_cmd_buffer];
 
@@ -215,7 +207,13 @@ namespace ncore
                             case DRAW_CMD_BKGRND_COLOR:
                                 {
                                     draw_bkgrnd_args_t* bkgrnd_args = (draw_bkgrnd_args_t*)&args.bkgrnd_args;
-                                    g_memset(r.m_sram_canvas, bkgrnd_args->color, r.m_sram_canvas_height * r.m_sram_canvas_width * sizeof(u16));
+                                    const u16 color = bkgrnd_args->color;
+                                    u16* dst = r.m_sram_canvas;
+                                    for (i16 y = 0; y < r.m_sram_canvas_height; y++)
+                                    {
+                                        for (i16 x = 0; x < r.m_sram_canvas_width; x++)
+                                            dst[y * r.m_sram_canvas_width + x] = color;
+                                    }                                    
                                     break;
                                 }
                             case DRAW_CMD_SPRITE:
@@ -255,11 +253,8 @@ namespace ncore
                     u16* psram_target = fb + (slice_y_start * fb_width);
                     g_memcpy(psram_target, r.m_sram_canvas, r.m_sram_canvas_height * fb_width * sizeof(u16));
                 }
-
-                nlcd::draw_end_frame();
             }
-            // Mark the current command buffer as waiting to be presented
-            r.m_cmd_buffer[r.m_current_cmd_buffer].m_state = CMD_BUFFER_WAITING;
+            nlcd::frame_end();  // note: blocking call, vsync wait occurs here
 
             // Switch to the other command buffer for the next frame
             r.m_current_cmd_buffer = 1 - r.m_current_cmd_buffer;

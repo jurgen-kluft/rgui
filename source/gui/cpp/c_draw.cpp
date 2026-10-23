@@ -5,6 +5,7 @@
 #include "lib_guition/c_lcd.h"
 
 #include "cgx2/c_slice_based_renderer.h"
+#include "cgx2/c_color.h"
 
 #include "gui/c_draw.h"
 
@@ -153,8 +154,9 @@ namespace ncore
 
         void draw_begin_frame()
         {
-            renderer_t& r                                      = g_renderer;
-            r.m_cmd_buffer[r.m_current_cmd_buffer].m_cmd_count = 0;
+            renderer_t&   r         = g_renderer;
+            cmd_buffer_t& curr_cmds = r.m_cmd_buffer[r.m_current_cmd_buffer];
+            curr_cmds.m_cmd_count   = 0;
         }
 
         void draw_end_frame()
@@ -191,11 +193,64 @@ namespace ncore
             ctx.m_height  = g_renderer.m_sram_canvas_height;
             ctx.m_offseth = 0;
 
-            ctx.m_color   = 0xFFFFFFFF;
-            ctx.m_fill    = 1;
-            ctx.m_sprite_pack = r.m_sprite_pack;
+            ctx.m_color        = 0xFFFFFFFF;
+            ctx.m_fill         = 1;
+            ctx.m_sprite_pack  = r.m_sprite_pack;
             ctx.m_palette_pack = r.m_palette_pack;
-            ctx.m_font_pack = r.m_font_pack;
+            ctx.m_font_pack    = r.m_font_pack;
+
+            // For each draw command, set the slices that are covered by it in the coverage bitmask.
+            {
+                cmd_buffer_t& cmds = r.m_cmd_buffer[r.m_current_cmd_buffer];
+
+                for (i16 c = 0; c < cmds.m_cmd_count; c++)
+                {
+                    draw_cmd_t& cmd = cmds.m_cmd_buffer[c];
+
+                    // Get the bounding box of the command to determine which slices it intersects.
+
+                        switch (cmd)
+                        {
+                            case DRAW_CMD_BKGRND_COLOR:
+                                {
+                                    cmds.m_cmd_bits[c] = 0xFFFF; // Mark all slices as covering
+                                    break;
+                                }
+                            case DRAW_CMD_SPRITE:
+                            case DRAW_CMD_ALPHA_SPRITE:
+                            case DRAW_CMD_SPRITE_SCALED:
+                            case DRAW_CMD_ALPHA_SPRITE_SCALED:
+                                {
+                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                    const i16 slice_start = sprite_args->y / r.m_sram_canvas_height;
+                                    const i16 slice_end   = slice_start + (sprite_args->h - 1) / r.m_sram_canvas_height;
+                                    cmds.m_cmd_bits[c] = (u16)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
+                                    break;
+                                }
+                            case DRAW_CMD_TEXT:
+                                {
+                                    draw_text_args_t* text_args = (draw_text_args_t*)&args.text_args;
+                                    const i16 slice_start = text_args->y / r.m_sram_canvas_height;
+                                    const i16 slice_end   = slice_start + (text_args->h - 1) / r.m_sram_canvas_height;
+                                    cmds.m_cmd_bits[c] = (u16)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
+                                    break;
+                                }
+                            case DRAW_CMD_DATE:
+                                {
+                                    break;
+                                }
+                            case DRAW_CMD_TIME:
+                                {
+                                    break;
+                                }
+                            case DRAW_CMD_VALUE:
+                                {
+                                    break;
+                                }
+                        }
+
+                }
+            }
 
             nlcd::frame_begin();
             {
@@ -253,11 +308,29 @@ namespace ncore
                                     ngx2::nsbr::draw_sprite(ctx, sprite_args->sprite_index, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h);
                                     break;
                                 }
+                            case DRAW_CMD_ALPHA_SPRITE_SCALED:
+                                {
+                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                    ngx2::nsbr::draw_sprite(ctx, sprite_args->sprite_index, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h);
+                                    break;
+                                }
                             case DRAW_CMD_TEXT:
                                 {
                                     draw_text_args_t* text_args = (draw_text_args_t*)&args.text_args;
-                                    ctx.m_color = s_rgb888_to_rgb565(text_args->color);
+                                    ctx.m_color                 = s_rgb888_to_rgb565(text_args->color);
                                     ngx2::nsbr::draw_text(ctx, text_args->font_index, (u16)text_args->size, text_args->x, text_args->y, (const char*)text_args->text);
+                                    break;
+                                }
+                            case DRAW_CMD_DATE:
+                                {
+                                    draw_date_args_t* date_args = (draw_date_args_t*)&args.date_args;
+                                    // TO be implemented: Custom drawing logic for date to the SRAM canvas slice
+                                    break;
+                                }
+                            case DRAW_CMD_TIME:
+                                {
+                                    draw_time_args_t* time_args = (draw_time_args_t*)&args.time_args;
+                                    // TO be implemented: Custom drawing logic for time to the SRAM canvas slice
                                     break;
                                 }
                             case DRAW_CMD_VALUE:
@@ -387,8 +460,8 @@ namespace ncore
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = x;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = y;
-            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = 0;
-            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = 0;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = sprite->width;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = sprite->height;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.blend_alpha  = alpha;
 
             cmds.m_cmd_count++;

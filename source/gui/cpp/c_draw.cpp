@@ -6,6 +6,10 @@
 
 #include "cgx2/c_slice_based_renderer.h"
 #include "cgx2/c_color.h"
+#include "cgx2/c_rect.h"
+#include "cgx2/c_font.h"
+#include "cgx2/c_sprite.h"
+#include "cgx2/c_palette.h"
 
 #include "gui/c_draw.h"
 
@@ -70,6 +74,31 @@ namespace ncore
             };
         };
 
+        struct draw_date_args_t
+        {
+            u16 x;           // X coordinate
+            u16 y;           // Y coordinate
+            u16 color;       // Color of the text
+            u8  font_index;  // Index of the font in the asset database
+            u8  size;        // Size of the text
+            u16 year;
+            u8  month : 4;
+            u8  day_of_week : 4;
+            u8  day;
+        };
+
+        struct draw_time_args_t
+        {
+            u16 x;           // X coordinate
+            u16 y;           // Y coordinate
+            u16 color;       // Color of the text
+            u8  font_index;  // Index of the font in the asset database
+            u8  size;        // Size of the text
+            u8  hour;
+            u8  minute;
+            u8  second;
+        };
+
         struct draw_value_args_t
         {
             u16 x;           // X coordinate
@@ -88,6 +117,8 @@ namespace ncore
             draw_bkgrnd_args_t bkgrnd_args;
             draw_sprite_args_t sprite_args;
             draw_text_args_t   text_args;
+            draw_date_args_t   date_args;
+            draw_time_args_t   time_args;
             draw_value_args_t  value_args;
         };
 
@@ -205,50 +236,42 @@ namespace ncore
 
                 for (i16 c = 0; c < cmds.m_cmd_count; c++)
                 {
-                    draw_cmd_t& cmd = cmds.m_cmd_buffer[c];
+                    const draw_cmd_t&      cmd  = cmds.m_cmd_buffer[c];
+                    const draw_cmd_args_t& args = cmds.m_cmd_args[c];
 
-                    // Get the bounding box of the command to determine which slices it intersects.
-
-                        switch (cmd)
-                        {
-                            case DRAW_CMD_BKGRND_COLOR:
-                                {
-                                    cmds.m_cmd_bits[c] = 0xFFFF; // Mark all slices as covering
-                                    break;
-                                }
-                            case DRAW_CMD_SPRITE:
-                            case DRAW_CMD_ALPHA_SPRITE:
-                            case DRAW_CMD_SPRITE_SCALED:
-                            case DRAW_CMD_ALPHA_SPRITE_SCALED:
-                                {
-                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    const i16 slice_start = sprite_args->y / r.m_sram_canvas_height;
-                                    const i16 slice_end   = slice_start + (sprite_args->h - 1) / r.m_sram_canvas_height;
-                                    cmds.m_cmd_bits[c] = (u16)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
-                                    break;
-                                }
-                            case DRAW_CMD_TEXT:
-                                {
-                                    draw_text_args_t* text_args = (draw_text_args_t*)&args.text_args;
-                                    const i16 slice_start = text_args->y / r.m_sram_canvas_height;
-                                    const i16 slice_end   = slice_start + (text_args->h - 1) / r.m_sram_canvas_height;
-                                    cmds.m_cmd_bits[c] = (u16)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
-                                    break;
-                                }
-                            case DRAW_CMD_DATE:
-                                {
-                                    break;
-                                }
-                            case DRAW_CMD_TIME:
-                                {
-                                    break;
-                                }
-                            case DRAW_CMD_VALUE:
-                                {
-                                    break;
-                                }
-                        }
-
+                    switch (cmd)
+                    {
+                        case DRAW_CMD_SPRITE:
+                        case DRAW_CMD_ALPHA_SPRITE:
+                        case DRAW_CMD_SPRITE_SCALED:
+                        case DRAW_CMD_ALPHA_SPRITE_SCALED:
+                            {
+                                draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                const i16           slice_start = sprite_args->y / r.m_sram_canvas_height;
+                                const i16           slice_end   = slice_start + (sprite_args->h - 1) / r.m_sram_canvas_height;
+                                cmds.m_cmd_bits[c]              = (draw_cmd_bits_t)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
+                                break;
+                            }
+                        case DRAW_CMD_TEXT:
+                        case DRAW_CMD_DATE:
+                        case DRAW_CMD_TIME:
+                        case DRAW_CMD_VALUE:
+                            {
+                                draw_text_args_t*   text_args    = (draw_text_args_t*)&args.text_args;
+                                const ngx2::font_t* font         = get_font(r.m_font_pack, text_args->font_index);
+                                const i16           text_y_start = get_text_y_start(font, text_args->y, text_args->size);
+                                const i16           text_y_end   = get_text_y_end(font, text_args->y, text_args->size);
+                                const i16           slice_start  = text_y_start / r.m_sram_canvas_height;
+                                const i16           slice_end    = slice_start + (text_y_end - 1) / r.m_sram_canvas_height;
+                                cmds.m_cmd_bits[c]               = (draw_cmd_bits_t)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
+                                break;
+                            }
+                        default:
+                            {
+                                cmds.m_cmd_bits[c] = ~(draw_cmd_bits_t)0x0;  // Mark all slices as covering
+                                break;
+                            }
+                    }
                 }
             }
 
@@ -264,17 +287,14 @@ namespace ncore
 
                     ctx.m_offseth = slice_y_start;
 
-                    // g_memclr(r.m_sram_canvas, r.m_sram_canvas_height * r.m_sram_canvas_width * sizeof(u16));
                     for (i16 c = 0; c < cmds.m_cmd_count; c++)
                     {
-                        draw_cmd_t& cmd = cmds.m_cmd_buffer[c];
-                        if (cmd & DRAW_CMD_DISABLED_FLAG)
+                        const draw_cmd_bits_t& bits = cmds.m_cmd_bits[c];
+                        if (bits & ((draw_cmd_bits_t)1 << i) == 0)
                             continue;
 
-                        const draw_cmd_args_t& args   = cmds.m_cmd_args[c];
-                        intersect_result_t     result = intersects_slice(r, cmd, &args, slice_y_start, slice_y_end);
-                        if (result == INTERSECT_NO)
-                            continue;
+                        const draw_cmd_t&      cmd  = cmds.m_cmd_buffer[c];
+                        const draw_cmd_args_t& args = cmds.m_cmd_args[c];
 
                         switch (cmd)
                         {
@@ -317,7 +337,7 @@ namespace ncore
                             case DRAW_CMD_TEXT:
                                 {
                                     draw_text_args_t* text_args = (draw_text_args_t*)&args.text_args;
-                                    ctx.m_color                 = s_rgb888_to_rgb565(text_args->color);
+                                    ctx.m_color                 = ngx2::rgb888_to_rgb565(text_args->color);
                                     ngx2::nsbr::draw_text(ctx, text_args->font_index, (u16)text_args->size, text_args->x, text_args->y, (const char*)text_args->text);
                                     break;
                                 }
@@ -340,12 +360,6 @@ namespace ncore
                                     break;
                                 }
                         }
-
-                        if (result == INTERSECT_DONE)
-                        {
-                            cmd |= DRAW_CMD_DISABLED_FLAG;
-                            continue;
-                        }
                     }
 
                     // Blit the fast SRAM slice into our PSRAM framebuffer
@@ -359,56 +373,6 @@ namespace ncore
             r.m_current_cmd_buffer = 1 - r.m_current_cmd_buffer;
         }
 
-        enum intersect_result_t
-        {
-            INTERSECT_NO,    // The asset does not intersect the slice (yet) and can be skipped
-            INTERSECT_YES,   // The asset intersects the slice and needs to be rendered
-            INTERSECT_DONE,  // The asset when rendered is fully done and can be marked as NOP
-        };
-
-        inline intersect_result_t intersects_slice(renderer_t& r, draw_cmd_t cmd, const draw_cmd_args_t* args, i16 slice_y_start, i16 slice_y_end)
-        {
-            switch (cmd)
-            {
-                case DRAW_CMD_BKGRND_COLOR:
-                    {
-                        return INTERSECT_YES;  // Clear screen always intersects the slice
-                    }
-                case DRAW_CMD_SPRITE:
-                    {
-                        draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args->sprite_args;
-                        // TODO
-                        // Note: We assume that sprites will never 'clip' left/right of the screen, so we only need to check
-                        //       the slice y start and end against the sprite y position and height.
-                        break;
-                    }
-                case DRAW_CMD_SPRITE_SCALED:
-                    {
-                        draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args->sprite_args;
-                        // TODO
-                        // Note: We assume that sprites will never 'clip' left/right of the screen, so we only need to check
-                        //       the slice y start and end against the sprite y position and height.
-                        break;
-                    }
-                case DRAW_CMD_TEXT:
-                    {
-                        draw_text_args_t* text_args = (draw_text_args_t*)&args->text_args;
-                        // TODO
-                        // Note: We assume that text will never 'clip' outside of the screen, so we only need to check
-                        //       the slice y start and end against the text y position and font height.
-                        break;
-                    }
-                case DRAW_CMD_VALUE:
-                    {
-                        draw_value_args_t* value_args = (draw_value_args_t*)&args->value_args;
-                        // TODO
-                        // Note: See note on text rendering
-                        break;
-                    }
-            }
-            return INTERSECT_NO;  // Default to no intersection
-        }
-
         void clear_background(u32 color)
         {
             cmd_buffer_t& cmds                                  = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
@@ -418,14 +382,14 @@ namespace ncore
             cmds.m_cmd_count++;
         }
 
-        void draw_background(u16 spriteId)
+        void draw_background(u16 spriteId, u8 fade)
         {
             ngx2::sprite_t* sprite = ngx2::get_sprite(g_renderer.m_sprite_pack, (u32)spriteId);
             if (!sprite)
                 return;
 
             cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
-            if (sprite->width == g_renderer.m_fb_width && sprite->height == g_renderer.m_fb_height)
+            if (sprite->m_width == g_renderer.m_fb_width && sprite->m_height == g_renderer.m_fb_height)
             {
                 cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE;
                 cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
@@ -460,8 +424,8 @@ namespace ncore
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = x;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = y;
-            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = sprite->width;
-            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = sprite->height;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = sprite->m_width;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = sprite->m_height;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.blend_alpha  = alpha;
 
             cmds.m_cmd_count++;

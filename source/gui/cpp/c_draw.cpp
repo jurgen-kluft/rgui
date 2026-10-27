@@ -4,7 +4,7 @@
 
 #include "lib_guition/c_lcd.h"
 
-#include "cgx2/c_slice_based_renderer.h"
+#include "cgx2/c_renderer.h"
 #include "cgx2/c_color.h"
 #include "cgx2/c_rect.h"
 #include "cgx2/c_font.h"
@@ -218,17 +218,11 @@ namespace ncore
             const u16 fb_width  = nlcd::width();
             const u16 fb_height = nlcd::height();
 
-            ngx2::nsbr::ctx_t ctx;
+            ngx2::ctx_t ctx;
             ctx.m_pixels  = g_renderer.m_sram_canvas;
             ctx.m_width   = g_renderer.m_sram_canvas_width;
             ctx.m_height  = g_renderer.m_sram_canvas_height;
             ctx.m_offseth = 0;
-
-            ctx.m_color        = 0xFFFFFFFF;
-            ctx.m_fill         = 1;
-            ctx.m_sprite_pack  = r.m_sprite_pack;
-            ctx.m_palette_pack = r.m_palette_pack;
-            ctx.m_font_pack    = r.m_font_pack;
 
             // For each draw command, set the slices that are covered by it in the coverage bitmask.
             {
@@ -259,8 +253,8 @@ namespace ncore
                             {
                                 draw_text_args_t*   text_args    = (draw_text_args_t*)&args.text_args;
                                 const ngx2::font_t* font         = get_font(r.m_font_pack, text_args->font_index);
-                                const i16           text_y_start = get_text_y_start(font, text_args->y, text_args->size);
-                                const i16           text_y_end   = get_text_y_end(font, text_args->y, text_args->size);
+                                const i16           text_y_start = ngx2::get_text_y_start(font->m_ascent, text_args->y, text_args->size);
+                                const i16           text_y_end   = ngx2::get_text_y_end(font->m_descent, text_args->y, text_args->size);
                                 const i16           slice_start  = text_y_start / r.m_sram_canvas_height;
                                 const i16           slice_end    = slice_start + (text_y_end - 1) / r.m_sram_canvas_height;
                                 cmds.m_cmd_bits[c]               = (draw_cmd_bits_t)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
@@ -313,32 +307,40 @@ namespace ncore
                             case DRAW_CMD_SPRITE:
                                 {
                                     draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    ngx2::nsbr::draw_sprite(ctx, sprite_args->sprite_index, sprite_args->x, sprite_args->y);
+                                    const ngx2::sprite_t* sprite = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
+                                    const ngx2::palette_t* palette = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
+                                    ngx2::draw_sprite(ctx, sprite, palette, sprite_args->x, sprite_args->y, ngx2::cRgb888ColorWhite);
                                     break;
                                 }
                             case DRAW_CMD_ALPHA_SPRITE:
                                 {
                                     draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    ngx2::nsbr::draw_sprite(ctx, sprite_args->sprite_index, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h);
+                                    const ngx2::sprite_t* sprite = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
+                                    const ngx2::palette_t* palette = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
+                                    ngx2::draw_sprite(ctx, sprite, palette, sprite_args->x, sprite_args->y, ngx2::cRgb888ColorWhite);
                                     break;
                                 }
                             case DRAW_CMD_SPRITE_SCALED:
                                 {
                                     draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    ngx2::nsbr::draw_sprite(ctx, sprite_args->sprite_index, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h);
+                                    const ngx2::sprite_t* sprite = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
+                                    const ngx2::palette_t* palette = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
+                                    ngx2::draw_sprite(ctx, sprite, palette, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h, ngx2::cRgb888ColorWhite);
                                     break;
                                 }
                             case DRAW_CMD_ALPHA_SPRITE_SCALED:
                                 {
                                     draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    ngx2::nsbr::draw_sprite(ctx, sprite_args->sprite_index, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h);
+                                    const ngx2::sprite_t* sprite = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
+                                    const ngx2::palette_t* palette = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
+                                    ngx2::draw_sprite(ctx, sprite, palette, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h, ngx2::cRgb888ColorWhite);
                                     break;
                                 }
                             case DRAW_CMD_TEXT:
                                 {
                                     draw_text_args_t* text_args = (draw_text_args_t*)&args.text_args;
-                                    ctx.m_color                 = ngx2::rgb888_to_rgb565(text_args->color);
-                                    ngx2::nsbr::draw_text(ctx, text_args->font_index, (u16)text_args->size, text_args->x, text_args->y, (const char*)text_args->text);
+                                    const ngx2::font_t* font = ngx2::get_font(r.m_font_pack, text_args->font_index);
+                                    ngx2::draw_text(ctx, font, (u16)text_args->size, text_args->x, text_args->y, (const char*)text_args->text, text_args->color);
                                     break;
                                 }
                             case DRAW_CMD_DATE:

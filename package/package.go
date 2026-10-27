@@ -38,13 +38,13 @@ func GetPackage() *denv.Package {
 	mainlib.AddDependencies(corepkg.GetMainLib())
 	mainlib.AddDependencies(homepkg.GetMainLib())
 	mainlib.AddDependencies(wifipkg.GetMainLib())
-	mainlib.AddDependency(lcdpkg.GetLibrary("library_wcs"))
 	mainlib.AddDependencies(ccovapkg.GetMainLib())
 	mainlib.AddDependencies(cgx2pkg.GetMainLib())
+	mainlib.AddDependency(lcdpkg.GetLibrary("library_guition"))
+	mainlib.AddDependency(lcdpkg.GetLibrary("library_touch"))
 
 	// gui application
 	mainapp := denv.SetupCppAppProjectForArduinoEsp32(mainpkg, repo_name, "main")
-	mainlib.AddDependency(lcdpkg.GetLibrary("library_touch"))
 	mainapp.AddDependency(mainlib)
 
 	mainpkg.AddMainApp(mainapp)

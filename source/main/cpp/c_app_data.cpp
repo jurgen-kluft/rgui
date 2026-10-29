@@ -20,7 +20,6 @@
 #include "lib_touch/c_touch_gt911.h"
 #include "lib_touch/c_touch_gesture.h"
 
-#include "gui/c_display.h"
 #include "gui/c_draw.h"
 
 #include "main/c_app_data.h"
@@ -40,7 +39,7 @@ namespace ncore
         nnet::setup_default(&app_data->m_tcp_client_config);
 
         // Note:
-        // - The 2D renderer will occupy around 64 KB of SRAM
+        // - The renderer will occupy around 64 KB of SRAM
         // - The script VM runtime uses around 4 to 8 kB of SRAM
 
         // The sizes are kept zero, to indicate that no data is currently stored in the allocated memory blocks.
@@ -50,7 +49,7 @@ namespace ncore
         app_data->m_script_binary_capacity = 32 * cKB;  // SRAM capacity of allocated script binary memory
         app_data->m_sprite_pack            = (ngx2::sprite_pack_t*)nsystem::alloc_psram_aligned(app_data->m_sprite_pack_capacity, 32);
         app_data->m_font_pack              = (ngx2::font_pack_t*)nsystem::alloc_psram_aligned(app_data->m_font_pack_capacity, 32);
-        app_data->m_palette_pack           = (ngx2::palette_pack_t*)nsystem::alloc_psram_aligned(app_data->m_palette_pack_capacity, 32);
+        app_data->m_palette_pack           = (ngx2::palette_pack_t*)nsystem::malloc(app_data->m_palette_pack_capacity);
         app_data->m_script_binary          = (linked_program_t*)nsystem::malloc(app_data->m_script_binary_capacity);
 
         const u32 house_meta_capacity    = 4 * cKB;  // SRAM capacity of allocated house meta memory

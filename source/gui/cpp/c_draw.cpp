@@ -375,7 +375,7 @@ namespace ncore
             r.m_current_cmd_buffer = 1 - r.m_current_cmd_buffer;
         }
 
-        void clear_background(u32 color)
+        void draw_background(u32 color)
         {
             cmd_buffer_t& cmds                                  = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
             cmds.m_cmd_buffer[cmds.m_cmd_count]                 = DRAW_CMD_BKGRND_COLOR;

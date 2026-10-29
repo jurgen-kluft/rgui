@@ -7,7 +7,7 @@
 - Script language and VM
   - Host functions
 - TCP client supporting plugins
-  - Handshake Plugin
+  - Message Plugin
   - Download Plugin
 - Check availability of assets on:
   - SD Card
@@ -17,6 +17,9 @@
     - Font Pack     (font_pack.bin)
     - Palette Pack  (palette_pack.bin)
     - Script Binary (script.bin)
+    - House Meta    (house_meta.bin)
+    - House Global  (house_global.bin)
+    - House Sensors (house_sensors.bin)
 - Connect to Asset Server
   - Send Asset Request to Asset Server with version of each asset
 - Download assets from Asset Server

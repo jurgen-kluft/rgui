@@ -16,12 +16,12 @@ namespace ncore
 
     namespace ngui
     {
-        void init_renderer(u16 fb_width, u16 fb_height, u16 sram_canvas_height, ngx2::sprite_pack_t* sprite_pack, ngx2::font_pack_t* font_pack, ngx2::palette_pack_t* palette_pack);
+        void init_renderer(u16 sram_canvas_height, ngx2::sprite_pack_t* sprite_pack, ngx2::font_pack_t* font_pack, ngx2::palette_pack_t* palette_pack);
 
         void draw_begin_frame();
         void draw_end_frame();
 
-        void clear_background(u32 color);
+        void draw_background(u32 color);
         void draw_background(u16 spriteId, u8 fade);
 
         void draw_sprite(u16 spriteId, u16 x, u16 y);

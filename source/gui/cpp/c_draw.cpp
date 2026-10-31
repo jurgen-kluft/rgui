@@ -48,6 +48,35 @@ namespace ncore
             u8  reserved;      // Reserved for future use
         };
 
+        struct draw_text_arg_t
+        {
+            const u8* str;  // Pointer to the text string to be drawn
+        };
+
+        struct draw_date_arg_t
+        {
+            u16 year;
+            u8  month : 4;
+            u8  day_of_week : 4;
+            u8  day;
+        };
+
+        struct draw_time_arg_t
+        {
+            u8 hour;
+            u8 minute;
+            u8 second;
+            u8 reserved;
+        };
+
+        struct draw_value_arg_t
+        {
+            u8  unit;       // Unit of the value (rhome, unit_type_e)
+            u8  reserved0;  // Reserved for future use
+            u16 reserved1;  // Reserved for future use
+            i32 value;      // Integer value to be drawn
+        };
+
         struct draw_text_args_t
         {
             u16 x;           // X coordinate
@@ -57,59 +86,11 @@ namespace ncore
             u8  size;        // Size of the text
             union
             {
-                const u8* text;  // Pointer to the text string to be drawn
-                struct
-                {
-                    u16 year;
-                    u8  month : 4;
-                    u8  day_of_week : 4;
-                    u8  day;
-                } date;
-                struct
-                {
-                    u8 hour;
-                    u8 minute;
-                    u8 second;
-                } time;
+                draw_text_arg_t  text;
+                draw_date_arg_t  date;
+                draw_time_arg_t  time;
+                draw_value_arg_t value;
             };
-        };
-
-        struct draw_date_args_t
-        {
-            u16 x;           // X coordinate
-            u16 y;           // Y coordinate
-            u16 color;       // Color of the text
-            u8  font_index;  // Index of the font in the asset database
-            u8  size;        // Size of the text
-            u16 year;
-            u8  month : 4;
-            u8  day_of_week : 4;
-            u8  day;
-        };
-
-        struct draw_time_args_t
-        {
-            u16 x;           // X coordinate
-            u16 y;           // Y coordinate
-            u16 color;       // Color of the text
-            u8  font_index;  // Index of the font in the asset database
-            u8  size;        // Size of the text
-            u8  hour;
-            u8  minute;
-            u8  second;
-        };
-
-        struct draw_value_args_t
-        {
-            u16 x;           // X coordinate
-            u16 y;           // Y coordinate
-            u16 color;       // Color of the value text
-            u8  font_index;  // Index of the font in the asset database
-            u8  size;        // Size of the value text
-            u8  unit;        // Unit of the value (rhome, unit_type_e)
-            u8  reserved0;   // Reserved for future use
-            u16 reserved1;   // Reserved for future use
-            i32 value;       // Integer value to be drawn
         };
 
         union draw_cmd_args_t
@@ -117,9 +98,6 @@ namespace ncore
             draw_bkgrnd_args_t bkgrnd_args;
             draw_sprite_args_t sprite_args;
             draw_text_args_t   text_args;
-            draw_date_args_t   date_args;
-            draw_time_args_t   time_args;
-            draw_value_args_t  value_args;
         };
 
         struct cmd_buffer_t
@@ -241,8 +219,8 @@ namespace ncore
                         case DRAW_CMD_ALPHA_SPRITE_SCALED:
                             {
                                 draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                const i16           slice_start = sprite_args->y / r.m_sram_canvas_height;
-                                const i16           slice_end   = slice_start + (sprite_args->h - 1) / r.m_sram_canvas_height;
+                                const u16           slice_start = sprite_args->y / r.m_sram_canvas_height;
+                                const u16           slice_end   = slice_start + (sprite_args->h - 1) / r.m_sram_canvas_height;
                                 cmds.m_cmd_bits[c]              = (draw_cmd_bits_t)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
                                 break;
                             }
@@ -253,10 +231,10 @@ namespace ncore
                             {
                                 draw_text_args_t*   text_args    = (draw_text_args_t*)&args.text_args;
                                 const ngx2::font_t* font         = get_font(r.m_font_pack, text_args->font_index);
-                                const i16           text_y_start = ngx2::get_text_y_start(font->m_ascent, text_args->y, text_args->size);
-                                const i16           text_y_end   = ngx2::get_text_y_end(font->m_descent, text_args->y, text_args->size);
-                                const i16           slice_start  = text_y_start / r.m_sram_canvas_height;
-                                const i16           slice_end    = slice_start + (text_y_end - 1) / r.m_sram_canvas_height;
+                                const u16           text_y_start = ngx2::get_text_y_start(font->m_size, font->m_ascent, text_args->y, text_args->size);
+                                const u16           text_y_end   = ngx2::get_text_y_end(font->m_size, font->m_descent, text_args->y, text_args->size);
+                                const u16           slice_start  = text_y_start / r.m_sram_canvas_height;
+                                const u16           slice_end    = slice_start + (text_y_end - 1) / r.m_sram_canvas_height;
                                 cmds.m_cmd_bits[c]               = (draw_cmd_bits_t)((((u32)1 << (slice_end - slice_start + 1)) - 1) << slice_start);
                                 break;
                             }
@@ -306,58 +284,55 @@ namespace ncore
                                 }
                             case DRAW_CMD_SPRITE:
                                 {
-                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    const ngx2::sprite_t* sprite = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
-                                    const ngx2::palette_t* palette = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
+                                    draw_sprite_args_t*    sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                    const ngx2::sprite_t*  sprite      = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
+                                    const ngx2::palette_t* palette     = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
                                     ngx2::draw_sprite(ctx, sprite, palette, sprite_args->x, sprite_args->y, ngx2::cRgb888ColorWhite);
                                     break;
                                 }
                             case DRAW_CMD_ALPHA_SPRITE:
                                 {
-                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    const ngx2::sprite_t* sprite = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
-                                    const ngx2::palette_t* palette = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
+                                    draw_sprite_args_t*    sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                    const ngx2::sprite_t*  sprite      = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
+                                    const ngx2::palette_t* palette     = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
                                     ngx2::draw_sprite(ctx, sprite, palette, sprite_args->x, sprite_args->y, ngx2::cRgb888ColorWhite);
                                     break;
                                 }
                             case DRAW_CMD_SPRITE_SCALED:
                                 {
-                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    const ngx2::sprite_t* sprite = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
-                                    const ngx2::palette_t* palette = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
+                                    draw_sprite_args_t*    sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                    const ngx2::sprite_t*  sprite      = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
+                                    const ngx2::palette_t* palette     = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
                                     ngx2::draw_sprite(ctx, sprite, palette, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h, ngx2::cRgb888ColorWhite);
                                     break;
                                 }
                             case DRAW_CMD_ALPHA_SPRITE_SCALED:
                                 {
-                                    draw_sprite_args_t* sprite_args = (draw_sprite_args_t*)&args.sprite_args;
-                                    const ngx2::sprite_t* sprite = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
-                                    const ngx2::palette_t* palette = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
+                                    draw_sprite_args_t*    sprite_args = (draw_sprite_args_t*)&args.sprite_args;
+                                    const ngx2::sprite_t*  sprite      = ngx2::get_sprite(r.m_sprite_pack, sprite_args->sprite_index);
+                                    const ngx2::palette_t* palette     = ngx2::get_palette(r.m_palette_pack, sprite->m_palette_index);
                                     ngx2::draw_sprite(ctx, sprite, palette, sprite_args->x, sprite_args->y, sprite_args->w, sprite_args->h, ngx2::cRgb888ColorWhite);
                                     break;
                                 }
                             case DRAW_CMD_TEXT:
                                 {
-                                    draw_text_args_t* text_args = (draw_text_args_t*)&args.text_args;
-                                    const ngx2::font_t* font = ngx2::get_font(r.m_font_pack, text_args->font_index);
-                                    ngx2::draw_text(ctx, font, (u16)text_args->size, text_args->x, text_args->y, (const char*)text_args->text, text_args->color);
+                                    draw_text_args_t*   text_args = (draw_text_args_t*)&args.text_args;
+                                    const ngx2::font_t* font      = ngx2::get_font(r.m_font_pack, text_args->font_index);
+                                    ngx2::draw_text(ctx, font, (u16)text_args->size, text_args->x, text_args->y, (const char*)text_args->text.str, text_args->color);
                                     break;
                                 }
                             case DRAW_CMD_DATE:
                                 {
-                                    draw_date_args_t* date_args = (draw_date_args_t*)&args.date_args;
                                     // TO be implemented: Custom drawing logic for date to the SRAM canvas slice
                                     break;
                                 }
                             case DRAW_CMD_TIME:
                                 {
-                                    draw_time_args_t* time_args = (draw_time_args_t*)&args.time_args;
                                     // TO be implemented: Custom drawing logic for time to the SRAM canvas slice
                                     break;
                                 }
                             case DRAW_CMD_VALUE:
                                 {
-                                    draw_value_args_t* value_args = (draw_value_args_t*)&args.value_args;
                                     // TO be implemented: Custom drawing logic for value to the SRAM canvas slice
                                     break;
                                 }
@@ -377,7 +352,10 @@ namespace ncore
 
         void draw_background(u32 color)
         {
-            cmd_buffer_t& cmds                                  = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            if (cmds.m_cmd_count >= cMaxCmdCount)
+                return;
+
             cmds.m_cmd_buffer[cmds.m_cmd_count]                 = DRAW_CMD_BKGRND_COLOR;
             cmds.m_cmd_bits[cmds.m_cmd_count]                   = 0;
             cmds.m_cmd_args[cmds.m_cmd_count].bkgrnd_args.color = color;
@@ -391,13 +369,19 @@ namespace ncore
                 return;
 
             cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            if (cmds.m_cmd_count >= cMaxCmdCount)
+                return;
+
             if (sprite->m_width == g_renderer.m_fb_width && sprite->m_height == g_renderer.m_fb_height)
             {
                 cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE;
                 cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
                 cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.blend_alpha  = fade;
                 cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = 0;
                 cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = 0;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = sprite->m_width;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = sprite->m_height;
                 cmds.m_cmd_count++;
             }
             else
@@ -405,6 +389,7 @@ namespace ncore
                 cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE_SCALED;
                 cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
                 cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
+                cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.blend_alpha  = fade;
                 cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = 0;
                 cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = 0;
                 cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = g_renderer.m_fb_width;
@@ -420,15 +405,17 @@ namespace ncore
                 return;
 
             cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            if (cmds.m_cmd_count >= cMaxCmdCount)
+                return;
 
             cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE;
             cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.blend_alpha  = alpha;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = x;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = y;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = sprite->m_width;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = sprite->m_height;
-            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.blend_alpha  = alpha;
 
             cmds.m_cmd_count++;
         }
@@ -443,15 +430,17 @@ namespace ncore
             }
 
             cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            if (cmds.m_cmd_count >= cMaxCmdCount)
+                return;
 
             cmds.m_cmd_buffer[cmds.m_cmd_count]                        = DRAW_CMD_SPRITE_SCALED;
             cmds.m_cmd_bits[cmds.m_cmd_count]                          = 0;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.sprite_index = spriteId;
+            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.blend_alpha  = alpha;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.x            = x;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.y            = y;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.w            = w;
             cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.h            = h;
-            cmds.m_cmd_args[cmds.m_cmd_count].sprite_args.blend_alpha  = alpha;
             cmds.m_cmd_count++;
         }
 
@@ -465,15 +454,18 @@ namespace ncore
                 return;
 
             cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            if (cmds.m_cmd_count >= cMaxCmdCount)
+                return;
 
-            cmds.m_cmd_buffer[cmds.m_cmd_count]                    = DRAW_CMD_TEXT;
+            cmds.m_cmd_buffer[cmds.m_cmd_count] = DRAW_CMD_TEXT;
+
             cmds.m_cmd_bits[cmds.m_cmd_count]                      = 0;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.font_index = fontId;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.size       = size;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.x          = x;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.y          = y;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.color      = color;
-            cmds.m_cmd_args[cmds.m_cmd_count].text_args.text       = text;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.text.str   = text;
             cmds.m_cmd_count++;
         }
 
@@ -484,8 +476,11 @@ namespace ncore
                 return;
 
             cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            if (cmds.m_cmd_count >= cMaxCmdCount)
+                return;
 
-            cmds.m_cmd_buffer[cmds.m_cmd_count]                    = DRAW_CMD_DATE;
+            cmds.m_cmd_buffer[cmds.m_cmd_count] = DRAW_CMD_DATE;
+
             cmds.m_cmd_bits[cmds.m_cmd_count]                      = 0;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.font_index = fontId;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.size       = size;
@@ -508,8 +503,11 @@ namespace ncore
                 return;
 
             cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            if (cmds.m_cmd_count >= cMaxCmdCount)
+                return;
 
-            cmds.m_cmd_buffer[cmds.m_cmd_count]                     = DRAW_CMD_TIME;
+            cmds.m_cmd_buffer[cmds.m_cmd_count] = DRAW_CMD_TIME;
+
             cmds.m_cmd_bits[cmds.m_cmd_count]                       = 0;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.font_index  = fontId;
             cmds.m_cmd_args[cmds.m_cmd_count].text_args.size        = size;
@@ -530,16 +528,19 @@ namespace ncore
                 return;
 
             cmd_buffer_t& cmds = g_renderer.m_cmd_buffer[g_renderer.m_current_cmd_buffer];
+            if (cmds.m_cmd_count >= cMaxCmdCount)
+                return;
 
-            cmds.m_cmd_buffer[cmds.m_cmd_count]                     = DRAW_CMD_VALUE;
+            cmds.m_cmd_buffer[cmds.m_cmd_count] = DRAW_CMD_VALUE;
+
             cmds.m_cmd_bits[cmds.m_cmd_count]                       = 0;
-            cmds.m_cmd_args[cmds.m_cmd_count].value_args.font_index = fontId;
-            cmds.m_cmd_args[cmds.m_cmd_count].value_args.size       = size;
-            cmds.m_cmd_args[cmds.m_cmd_count].value_args.x          = x;
-            cmds.m_cmd_args[cmds.m_cmd_count].value_args.y          = y;
-            cmds.m_cmd_args[cmds.m_cmd_count].value_args.color      = color;
-            cmds.m_cmd_args[cmds.m_cmd_count].value_args.value      = value;
-            cmds.m_cmd_args[cmds.m_cmd_count].value_args.unit       = unit;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.font_index  = fontId;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.size        = size;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.x           = x;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.y           = y;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.color       = color;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.value.value = value;
+            cmds.m_cmd_args[cmds.m_cmd_count].text_args.value.unit  = unit;
 
             cmds.m_cmd_count++;
         }

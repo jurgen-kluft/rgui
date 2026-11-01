@@ -43,7 +43,7 @@ namespace ncore
             case EXTERN_CLEAR_SCREEN:
                 {
                     const u32 color = pop_u32(vm);
-                    ngui::clear_background(color);
+                    ngui::draw_background(color);
                 }
                 break;
             case EXTERN_DRAW_SPRITE:

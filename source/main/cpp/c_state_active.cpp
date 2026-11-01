@@ -1,6 +1,15 @@
 #include "rcore/c_app.h"
 #include "rcore/c_log.h"
 
+#include "rwifi/c_wifi_mgr.h"
+#include "rwifi/c_tcp_client.h"
+
+#include "rhome/c_home.h"
+
+#include "ccova/vm.h"
+
+#include "gui/c_draw.h"
+
 #include "main/c_app_data.h"
 
 namespace ncore
@@ -8,7 +17,6 @@ namespace ncore
     void state_active(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
         // This is the main state, this is where we:
-        // - fade-out the splash screen until black (move to separate state ?)
         // - update touch state
         // - update touch gesture state
         // - update WiFi manager state

@@ -21,7 +21,8 @@ namespace ncore
             // Time critical setup before WiFi and other components are initialized can be done here
         }
 
-        ntimer::periodic_task_t gBlinkLedTask = {1000, 0, nullptr, [](void* user) { nlcd::led_toggle(); }};
+        static void             blink_led_task(void* user, u64 now_ms) { nlcd::led_toggle(); }
+        ntimer::periodic_task_t gBlinkLedTask = {1000, 0, nullptr, blink_led_task};
 
         void setup(state_t* state)
         {
@@ -42,7 +43,6 @@ namespace ncore
                     handle_state_data(&gAppState.m_state_data, &gAppState);
                 }
             }
-            
         }
 
     }  // namespace napp

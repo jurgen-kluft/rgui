@@ -21,11 +21,13 @@ namespace ncore
 
             nnet::setup(app_data->m_wifi_manager, &app_data->m_wifi_config);
             nnet::activate(app_data->m_wifi_manager);
+            nnet::tick(app_data->m_wifi_manager);
             state_data->m_state_data = WIFI_STATE_CONNECTING;
         }
         else if (state_data->m_state_data == WIFI_STATE_CONNECTING)
         {
             // Check WiFi connection status
+            nnet::tick(app_data->m_wifi_manager);
             if (nnet::is_connected(app_data->m_wifi_manager))
             {
                 state_data->m_state_data = WIFI_STATE_CONNECTED;
@@ -34,6 +36,7 @@ namespace ncore
         else if (state_data->m_state_data == WIFI_STATE_CONNECTED)
         {
             // Leave
+            nnet::tick(app_data->m_wifi_manager);
             to_state_next(state_data);
         }
     }

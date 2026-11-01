@@ -35,7 +35,7 @@ namespace ncore
         ntouch::gesture_config_t gesture_config;
         ntouch::init_touch_gesture(app_data->m_touch_gesture, gesture_config);
 
-        nnet::init_wifi_config(app_data->m_wifi_config, WIFI_SSID(), WIFI_PASSWORD(), 1000, 16000, 2.0f, 0.1f);
+        app_data->m_wifi_manager = nnet::create_wifi_mgr(WIFI_SSID(), WIFI_PASSWORD(), 1000, 16000, 2.0f, 0.1f);
         nnet::setup_default(&app_data->m_tcp_client_config);
 
         // Note:
@@ -116,7 +116,7 @@ namespace ncore
         }
     }
 
-    void update_touch(app_data_t& data, u64 now_ms)
+    void update_touch(app_data_t* data, u64 now_ms)
     {
         ntouch::touch_point_t p1, p2;
         bool                  p1_present = false;
@@ -124,7 +124,7 @@ namespace ncore
 
         u8                    num_points = 0;
         ntouch::touch_point_t points[ntouch::TP_CT_MAX_TOUCH];
-        if (ntouch::touch_scan(data.m_touch, now_ms, points, ntouch::TP_CT_MAX_TOUCH, &num_points) == true)
+        if (ntouch::touch_scan(data->m_touch, now_ms, points, ntouch::TP_CT_MAX_TOUCH, &num_points) == true)
         {
             if (num_points > 0)
             {
@@ -148,16 +148,16 @@ namespace ncore
                 }
             }
 
-            ntouch::egesture_type_t gesture = ntouch::update_touch_gesture(data.m_touch_gesture, now_ms, p1_present, p1, p2_present, p2);
+            ntouch::egesture_type_t gesture = ntouch::update_touch_gesture(data->m_touch_gesture, now_ms, p1_present, p1, p2_present, p2);
 
             if (gesture == ntouch::GT_TAP)
             {
-                ntouch::touch_point_t tap_point = ntouch::get_single_tap_location(data.m_touch_gesture);
+                ntouch::touch_point_t tap_point = ntouch::get_single_tap_location(data->m_touch_gesture);
                 nlog::println("Single tap detected");
             }
             else if (gesture == ntouch::GT_DOUBLE_TAP)
             {
-                ntouch::touch_point_t tap_point = ntouch::get_single_tap_location(data.m_touch_gesture);
+                ntouch::touch_point_t tap_point = ntouch::get_single_tap_location(data->m_touch_gesture);
                 nlog::println("Double tap detected");
             }
             else if ((gesture & ntouch::GT_SWIPE_ONE_FINGER) != 0)
@@ -183,6 +183,11 @@ namespace ncore
                     nlog::println("Two finger swipe down detected");
             }
         }
+    }
+
+    void update_script(app_data_t* data, u64 now_ms)
+    {
+        // update the script state based on the current time and app data
     }
 
 }  // namespace ncore

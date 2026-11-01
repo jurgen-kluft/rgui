@@ -112,8 +112,7 @@ namespace ncore
         u32         m_app_tick_fn_count;  // Number of registered app tick functions
         app_tick_fn m_app_tick_fn[8];     // Array of registered app tick functions
 
-        nnet::wifi_manager_t m_wifi_manager;  // WiFi manager for network connectivity
-        nnet::wifi_config_t  m_wifi_config;   // WiFi configuration
+        nnet::wifi_manager_t* m_wifi_manager;  // WiFi manager for network connectivity
 
         nnet::config_t     m_tcp_client_config;  // TCP client configuration (shared)
         void*              m_tcp_socket;         // TCP socket

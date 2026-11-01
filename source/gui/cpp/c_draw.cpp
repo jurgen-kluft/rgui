@@ -4,6 +4,7 @@
 
 #include "lib_guition/c_lcd.h"
 
+#include "cgx2/c_types.h"
 #include "cgx2/c_renderer.h"
 #include "cgx2/c_color.h"
 #include "cgx2/c_rect.h"

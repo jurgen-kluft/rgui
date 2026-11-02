@@ -114,7 +114,7 @@ namespace ncore
 
         switch (data_type)
         {
-            case nnet::MSG_TYPE_DOWNLOAD_COMPLETE: 
+            case nnet::MSG_TYPE_DOWNLOAD_COMPLETE:
                 // The download complete message buffer is not needed
                 return true;
         }
@@ -155,6 +155,12 @@ namespace ncore
         u32 version;
     };
 
+    static void s_tick_tcp_client(app_data_t* app_data, u64 now_ms)
+    {
+        // Tick the TCP client to handle any ongoing network events or download progress
+        nnet::tick_tcp_client(app_data->m_wifi_manager, app_data->m_tcp_client);
+    }
+
     void state_download_assets(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
         if (state_data->m_state_data == ASSET_SERVER_STATE_SETUP)
@@ -170,12 +176,13 @@ namespace ncore
 
             // Start the connection to the asset server
             nnet::connect(app_data->m_tcp_client, ASSET_SERVER_IP(), ASSET_SERVER_TCPPORT());
+
+            register_tick_fn(app_data, s_tick_tcp_client);
+
             state_data->m_state_data = ASSET_SERVER_STATE_CONNECTING;
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_CONNECTING)
         {
-            nnet::tick_tcp_client(&app_data->m_wifi_manager, app_data->m_tcp_client);
-
             // Check if the TCP client is connected to the asset server
             if (nnet::is_connected(app_data->m_tcp_client))
             {
@@ -184,8 +191,6 @@ namespace ncore
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_CONNECTED)
         {
-            nnet::tick_tcp_client(&app_data->m_wifi_manager, app_data->m_tcp_client);
-
             //
             // Send download_request_msg_t to the server to initiate the download process
             //
@@ -236,8 +241,6 @@ namespace ncore
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_DOWNLOADING)
         {
-            nnet::tick_tcp_client(&app_data->m_wifi_manager, app_data->m_tcp_client);
-
             // Wait until we have received all the necessary data from the asset server:
             // - sprite pack
             // - font pack
@@ -248,6 +251,9 @@ namespace ncore
             // that the download has finished.
             if (app_data->m_download_finished)
             {
+                // Remove the tick function for the TCP client as it is no longer needed.
+                unregister_tick_fn(app_data, s_tick_tcp_client);
+
                 // Fully disconnect the TCP client from the asset server.
                 nnet::disconnect(app_data->m_tcp_client);
 
@@ -255,10 +261,11 @@ namespace ncore
                 // Possibly verify the integrity of the downloaded assets here (e.g., checksum, signature) before proceeding.
 
                 // Also free the plugins and their associated data, as they are no longer needed.
-                nnet::tcp_recv_plugin_t* download_plugin = nnet::get_plugin(app_data->m_tcp_client, 0);
-                nnet::tcp_recv_plugin_t* messages_plugin = nnet::get_plugin(app_data->m_tcp_client, 1);
-                nnet::unregister_plugin(app_data->m_tcp_client, 0, download_plugin);
-                nnet::unregister_plugin(app_data->m_tcp_client, 1, messages_plugin);
+                nnet::tcp_recv_plugin_t* download_plugin = nnet::unregister_plugin(app_data->m_tcp_client, 0);
+                nnet::tcp_recv_plugin_t* messages_plugin = nnet::unregister_plugin(app_data->m_tcp_client, 1);
+
+                nnet::destroy_download_plugin(download_plugin);
+                nnet::destroy_messages_plugin(messages_plugin);
 
                 // Ready to move on to the next state in the FSM.
                 to_state_next(state_data);

@@ -6,6 +6,7 @@
 #include "rcore/c_system.h"
 #include "rcore/c_wire.h"
 
+#include "ccore/c_math.h"
 #include "ccore/c_memory.h"
 #include "ccore/c_random.h"
 
@@ -67,7 +68,7 @@ namespace ncore
         app_data->m_state_fn[FSM_STATE_HANDLE_LITTLE_FS]     = state_handle_little_fs;
         app_data->m_state_fn[FSM_STATE_HANDLE_SD_CARD]       = state_handle_sd_card;
         app_data->m_state_fn[FSM_STATE_DOWNLOAD_ASSETS]      = state_download_assets;
-        app_data->m_state_fn[FSM_STATE_VERIFY_ASSETS]        = state_verify_assets;
+        app_data->m_state_fn[FSM_STATE_HANDLE_ASSETS]        = state_handle_assets;
         app_data->m_state_fn[FSM_STATE_HANDLE_SENSOR_SERVER] = state_handle_sensor_server;
         app_data->m_state_fn[FSM_STATE_INITIALIZE_SENSORS]   = state_initialize_sensors;
         app_data->m_state_fn[FSM_STATE_INITIALIZE_DISPLAY]   = state_initialize_display;
@@ -81,11 +82,66 @@ namespace ncore
         nnet::setup(app_data->m_tcp_client, &app_data->m_tcp_client_config, app_data->m_tcp_socket);
     }
 
-    void register_app_tick_fn(app_data_t* app_data, app_tick_fn fn)
+    void register_tick_fn(app_data_t* app_data, app_tick_fn fn)
     {
-        if (app_data != nullptr && fn != nullptr && app_data->m_app_tick_fn_count < 8)
+        if (app_data != nullptr && fn != nullptr && app_data->m_app_tick_fn_occupancy != 0)
         {
-            app_data->m_app_tick_fn[app_data->m_app_tick_fn_count++] = fn;
+            const s8 index = math::findFirstBit(~app_data->m_app_tick_fn_occupancy);
+            if (index >= 0)
+            {
+                app_data->m_app_tick_fn[index] = fn;
+                app_data->m_app_tick_fn_occupancy |= (1 << index);
+            }
+        }
+    }
+
+    void update_tick_fns(app_data_t* app_data, u64 now_ms)
+    {
+        if (app_data != nullptr)
+        {
+            const i32 max_index = DARRAYSIZE(app_data->m_app_tick_fn);
+            for (i32 i = 0; i < max_index; ++i)
+            {
+                if (app_data->m_app_tick_fn[i] != nullptr)
+                {
+                    app_data->m_app_tick_fn[i](app_data, now_ms);
+                }
+            }
+        }
+    }
+
+    void unregister_tick_fn(app_data_t* app_data, app_tick_fn fn)
+    {
+        if (app_data != nullptr && fn != nullptr)
+        {
+            const i32 max_index = DARRAYSIZE(app_data->m_app_tick_fn);
+            for (i32 i = 0; i < max_index; ++i)
+            {
+                if (app_data->m_app_tick_fn[i] == fn)
+                {
+                    app_data->m_app_tick_fn[i] = nullptr;
+                    app_data->m_app_tick_fn_occupancy &= ~(1 << i);
+                    break;
+                }
+            }
+
+        }
+    }
+
+    void update_fsm(app_data_t* app_data, u64 now_ms)
+    {
+        if (app_data != nullptr)
+        {
+            fsm_state_data_t* state_data = &app_data->m_state_data;
+            if (state_data->m_current_state > FSM_STATE_NONE && state_data->m_current_state < FSM_STATE_COUNT)
+            {
+                state_fn_t state_fn = app_data->m_state_fn[state_data->m_current_state];
+                if (state_fn)
+                {
+                    state_fn(state_data, app_data, now_ms);
+                    handle_state_data(state_data, app_data);
+                }
+            }
         }
     }
 

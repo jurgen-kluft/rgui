@@ -40,10 +40,9 @@ namespace ncore
         FSM_STATE_NONE = 0,              // No state, initial state before any initialization
         FSM_STATE_HANDLE_LITTLE_FS,      // Initialize LittleFS
         FSM_STATE_HANDLE_SD_CARD,        // Initialize SD card
-        FSM_STATE_VERIFY_ASSETS,         // Do we have all the necessary assets
         FSM_STATE_CONNECT_TO_WIFI,       // First, connect to WiFi to enable network communication
         FSM_STATE_DOWNLOAD_ASSETS,       // Next, download assets from the asset server
-        FSM_STATE_VERIFY_ASSETS,         // Verify that all necessary assets are present before downloading
+        FSM_STATE_HANDLE_ASSETS,         // Verify that all necessary assets are present before downloading
         FSM_STATE_HANDLE_SENSOR_SERVER,  // Next, connect to the sensor server
         FSM_STATE_INITIALIZE_SENSORS,    // Next, initialize the sensors
         FSM_STATE_INITIALIZE_DISPLAY,    // Next, initialize the display
@@ -75,7 +74,7 @@ namespace ncore
 
     void state_connect_to_wifi(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
     void state_download_assets(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
-    void state_verify_assets(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
+    void state_handle_assets(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
 
     void state_handle_sensor_server(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
     void state_initialize_sensors(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
@@ -98,7 +97,7 @@ namespace ncore
         EDATA_SOURCE_SENSOR_SERVER,
     };
 
-    typedef void (*app_tick_fn)(app_data_t* app_data);
+    typedef void (*app_tick_fn)(app_data_t* app_data, u64 now_ms);
 
     struct app_data_t
     {
@@ -109,8 +108,8 @@ namespace ncore
         ntouch::touch_t         m_touch;          // Touch
         ntouch::touch_gesture_t m_touch_gesture;  // Touch gesture state
 
-        u32         m_app_tick_fn_count;  // Number of registered app tick functions
-        app_tick_fn m_app_tick_fn[8];     // Array of registered app tick functions
+        u32         m_app_tick_fn_occupancy;  // Number of registered app tick functions
+        app_tick_fn m_app_tick_fn[16];        // Array of registered app tick functions
 
         nnet::wifi_manager_t* m_wifi_manager;  // WiFi manager for network connectivity
 
@@ -153,8 +152,11 @@ namespace ncore
     bool get_script(app_data_t* data, const void*& script_binary, u32& script_binary_size, u32& script_memory_capacity);
 
     void init_app_data(app_data_t* app_data);
-    void register_app_tick_fn(app_data_t* app_data, app_tick_fn fn);
+    void register_tick_fn(app_data_t* app_data, app_tick_fn fn);
+    void unregister_tick_fn(app_data_t* app_data, app_tick_fn fn);
 
+    void update_fsm(app_data_t* app_data, u64 now_ms);
+    void update_tick_fns(app_data_t* app_data);
     void update_touch(app_data_t* data, u64 now_ms);
     void update_script(app_data_t* data, u64 now_ms);
 

@@ -31,15 +31,14 @@ namespace ncore
             {
                 nlog::println("Initialize Touch - Failed to initialize touch panel");
                 to_state_error(state_data);
-                return;
             }
-
-            ntouch::init_touch_gesture(app_data->m_touch_gesture, ntouch::gesture_config_t());
-
-            // Leave
-            to_state_next(state_data);
-
-            nlog::println("Initialize Touch -  Complete");
+            else
+            {
+                ntouch::init_touch_gesture(app_data->m_touch_gesture, ntouch::gesture_config_t());
+                
+                nlog::println("Initialize Touch -  Complete");
+                to_state_next(state_data);
+            }
         }
     }
 }  // namespace ncore

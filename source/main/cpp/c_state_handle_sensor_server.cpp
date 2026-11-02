@@ -67,7 +67,7 @@ namespace ncore
         }
     }
 
-    static void s_tick_sensor_server(app_data_t* app_data) { nnet::tick_tcp_client(&app_data->m_wifi_manager, app_data->m_tcp_client); }
+    static void s_tick_sensor_server(app_data_t* app_data, u64 now_ms) { nnet::tick_tcp_client(app_data->m_wifi_manager, app_data->m_tcp_client); }
 
     void state_handle_sensor_server(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
@@ -85,7 +85,7 @@ namespace ncore
             // Check if the TCP client is connected to the sensor server
             if (nnet::is_connected(app_data->m_tcp_client))
             {
-                register_app_tick_fn(app_data, s_tick_sensor_server);
+                register_tick_fn(app_data, s_tick_sensor_server);
                 state_data->m_state_data = SENSOR_SERVER_STATE_CONNECTED;
             }
         }

@@ -243,10 +243,4 @@ namespace ncore
             }
         }
     }
-
-    void update_script(app_data_t* data, u64 now_ms)
-    {
-        // update the script state based on the current time and app data
-    }
-
 }  // namespace ncore

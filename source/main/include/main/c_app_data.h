@@ -98,6 +98,8 @@ namespace ncore
 
     typedef void (*app_tick_fn)(app_data_t* app_data, u64 now_ms);
 
+    struct app_vm_t;
+
     struct app_data_t
     {
         bool m_sd_card_available;
@@ -116,6 +118,8 @@ namespace ncore
         void*              m_tcp_socket;         // TCP socket
         nnet::tcp_client_t m_tcp_client;         // TCP client for server communication
         nnet::msg_t        m_msg;                // Message buffer for network communication
+
+        app_vm_t* m_app_vm;  // Pointer to the script VM instance associated with the app
 
         bool                  m_download_finished;       // Indicates whether the download of assets from the asset server has finished
         edata_source_t        m_sprite_pack_source;      // Source of the sprite pack data (e.g., LITTLE_FS, SD_CARD, ASSET_SERVER)

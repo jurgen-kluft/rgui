@@ -5,7 +5,7 @@
 #include "ccore/c_math.h"
 
 #include "ccova/vm.h"
-#include "ccova/program_image.h"
+#include "ccova/linked_program.h"
 #include "ccova/segment_memory.h"
 
 #include "main/c_app_data.h"
@@ -24,17 +24,31 @@ namespace ncore
         const linked_program_t* linked_program;
         vm_t                    m_vm;
     };
-    static app_vm_t s_app_vm;
+
+    void update_script(app_data_t* app_data, u64 now_ms)
+    {
+        app_vm_t* app_vm = app_data->m_app_vm;
+        run_vm(&app_vm->m_vm, now_ms);
+    }
 
     void state_initialize_script_vm(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
-        app_vm_t* app_vm       = &s_app_vm;
-        app_vm->linked_program = open_program_image((byte*)app_data->m_script_binary, app_data->m_script_binary_size);
-        if (!(app_vm->linked_program != nullptr))
+        if (!(app_data->m_script_binary != nullptr))
         {
             to_state_error(state_data);
             return;
         }
+
+        const linked_program_t* program = open_program_image((byte*)app_data->m_script_binary, app_data->m_script_binary_size);
+        if (!(program != nullptr))
+        {
+            to_state_error(state_data);
+            return;
+        }
+
+        app_vm_t* app_vm       = nsystem::callocate<app_vm_t>();
+        app_data->m_app_vm     = app_vm;
+        app_vm->linked_program = program;
 
         const u32 call_frame_capacity = 8;
 
@@ -93,13 +107,6 @@ namespace ncore
         register_extern_dispatcher(&app_vm->m_vm, app_data, extern_host_fn);
 
         to_state_next(&app_data->m_state_data);
-    }
-
-    void update_script(app_data_t& app_data, u64 now_ms)
-    {
-        app_vm_t* app_vm = &s_app_vm;
-
-        run_vm(&app_vm->m_vm, now_ms);
     }
 
 }  // namespace ncore

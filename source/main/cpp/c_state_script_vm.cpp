@@ -30,6 +30,11 @@ namespace ncore
     {
         app_vm_t* app_vm       = &s_app_vm;
         app_vm->linked_program = open_program_image((byte*)app_data->m_script_binary, app_data->m_script_binary_size);
+        if (!(app_vm->linked_program != nullptr))
+        {
+            to_state_error(state_data);
+            return;
+        }
 
         const u32 call_frame_capacity = 8;
 

@@ -18,6 +18,12 @@ namespace ncore
         SENSOR_SERVER_STATE_CONNECTING,
         SENSOR_SERVER_STATE_CONNECTED,
         SENSOR_SERVER_STATE_ERROR,
+        SENSOR_SERVER_STATE_CONNECT_FAILED,
+    };
+
+    enum sensor_server_settings_t
+    {
+        SENSOR_SERVER_CONNECT_TIMEOUT_MS  = 10000,  // 10 seconds timeout for connecting to the sensor server
     };
 
     bool on_recv_user_acquire_fn(void* on_acquire_context, u32 data_type, u32 data_size, nnet::buffer_t& out_buffer)
@@ -67,31 +73,46 @@ namespace ncore
         }
     }
 
-    static void s_tick_sensor_server(app_data_t* app_data, u64 now_ms) { nnet::tick_tcp_client(app_data->m_wifi_manager, app_data->m_tcp_client); }
+    static void s_tick_sensor_server(app_data_t* app_data, u64 now_ms)
+    {
+        // tick the tcp client that is connected to the sensor server
+        nnet::tick_tcp_client(app_data->m_wifi_manager, app_data->m_tcp_client);
+    }
 
     void state_handle_sensor_server(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
         if (state_data->m_state_data == SENSOR_SERVER_STATE_SETUP)
         {
-            nnet::tcp_recv_plugin_t* messages_plugin = nnet::new_messages_plugin(on_recv_user_acquire_fn, on_recv_user_complete_fn, on_recv_user_abort_fn, &app_data);
+            nnet::tcp_recv_plugin_t* messages_plugin = nnet::new_messages_plugin(on_recv_user_acquire_fn, on_recv_user_complete_fn, on_recv_user_abort_fn, app_data);
 
             nnet::register_plugin(app_data->m_tcp_client, 0, messages_plugin);
             nnet::connect(app_data->m_tcp_client, SENSOR_SERVER_IP(), SENSOR_SERVER_TCPPORT());
+            register_tick_fn(app_data, s_tick_sensor_server);
 
-            state_data->m_state_data = SENSOR_SERVER_STATE_CONNECTING;
+            state_data->m_state_start_ms = now_ms;
+            state_data->m_state_data     = SENSOR_SERVER_STATE_CONNECTING;
         }
         else if (state_data->m_state_data == SENSOR_SERVER_STATE_CONNECTING)
         {
             // Check if the TCP client is connected to the sensor server
             if (nnet::is_connected(app_data->m_tcp_client))
             {
-                register_tick_fn(app_data, s_tick_sensor_server);
                 state_data->m_state_data = SENSOR_SERVER_STATE_CONNECTED;
+            }
+            else if (now_ms - state_data->m_state_start_ms > SENSOR_SERVER_CONNECT_TIMEOUT_MS)
+            {
+                state_data->m_state_start_ms = now_ms;
+                state_data->m_state_data     = SENSOR_SERVER_STATE_CONNECT_FAILED;
             }
         }
         else if (state_data->m_state_data == SENSOR_SERVER_STATE_CONNECTED)
         {
             to_state_next(state_data);  // Move to the next state in the FSM
+        }
+        else if (state_data->m_state_data == SENSOR_SERVER_STATE_CONNECT_FAILED)
+        {
+            // Handle the connection failure, possibly retry or move to an error state.
+            to_state_error(state_data);
         }
     }
 

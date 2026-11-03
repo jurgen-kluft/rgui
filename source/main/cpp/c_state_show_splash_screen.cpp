@@ -23,27 +23,28 @@ namespace ncore
         SPLASH_STATE_DONE
     };
 
-    static u64       s_splash_start_time  = 0;
-    static const u64 s_splash_duration_ms = 3000;  // Duration to show the splash screen in milliseconds
+    static u64       s_splash_start_time = 0;
+    static const u32 s_splash_show_ms    = 2000;  // Duration to show the splash screen in milliseconds
+    static const u32 s_splash_fade_ms    = 3000;  // Duration to fade the splash screen in milliseconds
 
     void state_show_splash_screen(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
         if (state_data->m_state_data == SPLASH_STATE_INIT)
         {
-            s_splash_start_time = now_ms;
+            s_splash_start_time      = now_ms;
             state_data->m_state_data = SPLASH_STATE_SHOW;
         }
         else if (state_data->m_state_data == SPLASH_STATE_FADE_OUT)
         {
             // Handle fade out logic here if needed
-            if (now_ms - s_splash_start_time >= s_splash_duration_ms)
+            if (now_ms - s_splash_start_time >= s_splash_fade_ms)
             {
                 state_data->m_state_data = SPLASH_STATE_DONE;
                 to_state_next(state_data);  // Move to the next state in the FSM
             }
             else
             {
-                const u8 fade_progress = (u8)(((now_ms - s_splash_start_time) * 255) / s_splash_duration_ms);  // Calculate fade progress (0-255)
+                const u8 fade_progress = (u8)(((now_ms - s_splash_start_time) * 255) / s_splash_fade_ms);  // Calculate fade progress (0-255)
                 ngui::draw_begin_frame();
                 {
                     ngui::draw_background(SPECIAL_SCREEN_SPLASH, 255 - fade_progress);
@@ -53,13 +54,19 @@ namespace ncore
         }
         else if (state_data->m_state_data == SPLASH_STATE_SHOW)
         {
-            ngui::draw_begin_frame();
+            if (now_ms - s_splash_start_time >= s_splash_show_ms)
             {
-                ngui::draw_background(SPECIAL_SCREEN_SPLASH, 255);
+                s_splash_start_time      = now_ms;
+                state_data->m_state_data = SPLASH_STATE_FADE_OUT;
             }
-            ngui::draw_end_frame();
-
-            state_data->m_state_data = SPLASH_STATE_FADE_OUT;
+            else
+            {
+                ngui::draw_begin_frame();
+                {
+                    ngui::draw_background(SPECIAL_SCREEN_SPLASH, 255);
+                }
+                ngui::draw_end_frame();
+            }
         }
     }
 

@@ -38,9 +38,9 @@ namespace ncore
     enum fsm_state_enum_t
     {
         FSM_STATE_NONE = 0,              // No state, initial state before any initialization
+        FSM_STATE_CONNECT_TO_WIFI,       // First, connect to WiFi to enable network communication
         FSM_STATE_HANDLE_LITTLE_FS,      // Initialize LittleFS
         FSM_STATE_HANDLE_SD_CARD,        // Initialize SD card
-        FSM_STATE_CONNECT_TO_WIFI,       // First, connect to WiFi to enable network communication
         FSM_STATE_DOWNLOAD_ASSETS,       // Next, download assets from the asset server
         FSM_STATE_HANDLE_ASSETS,         // Verify that all necessary assets are present before downloading
         FSM_STATE_HANDLE_SENSOR_SERVER,  // Next, connect to the sensor server
@@ -57,6 +57,7 @@ namespace ncore
     struct fsm_state_data_t
     {
         i32              m_state_data;      // State-specific data that can be used to store information relevant to the current state
+        u64              m_state_start_ms;  // Time in milliseconds when the current state should time out
         fsm_state_enum_t m_current_state;   // The current state of the FSM
         fsm_state_enum_t m_previous_state;  // The previous state before the current state
         fsm_state_enum_t m_next_state;      // The next state to transition to after leaving the current state
@@ -66,8 +67,6 @@ namespace ncore
     inline void to_state_next(fsm_state_data_t* state_data) { state_data->m_next_state = (fsm_state_enum_t)(state_data->m_current_state + 1); }
 
     typedef void (*state_fn_t)(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
-
-    void handle_state_data(fsm_state_data_t* state_data, app_data_t* app_data);
 
     void state_handle_little_fs(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
     void state_handle_sd_card(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms);
@@ -156,7 +155,7 @@ namespace ncore
     void unregister_tick_fn(app_data_t* app_data, app_tick_fn fn);
 
     void update_fsm(app_data_t* app_data, u64 now_ms);
-    void update_tick_fns(app_data_t* app_data);
+    void update_tick_fns(app_data_t* app_data, u64 now_ms);
     void update_touch(app_data_t* data, u64 now_ms);
     void update_script(app_data_t* data, u64 now_ms);
 

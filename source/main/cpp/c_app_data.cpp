@@ -84,10 +84,11 @@ namespace ncore
 
     void register_tick_fn(app_data_t* app_data, app_tick_fn fn)
     {
-        if (app_data != nullptr && fn != nullptr && app_data->m_app_tick_fn_occupancy != 0)
+        if (app_data != nullptr && fn != nullptr)
         {
-            const s8 index = math::findFirstBit(~app_data->m_app_tick_fn_occupancy);
-            if (index >= 0)
+            const s8 max_index = (s8)DARRAYSIZE(app_data->m_app_tick_fn);
+            const s8 index     = math::findFirstBit(~app_data->m_app_tick_fn_occupancy);
+            if (index >= 0 && index < max_index)
             {
                 app_data->m_app_tick_fn[index] = fn;
                 app_data->m_app_tick_fn_occupancy |= (1 << index);
@@ -100,12 +101,14 @@ namespace ncore
         if (app_data != nullptr)
         {
             const i32 max_index = DARRAYSIZE(app_data->m_app_tick_fn);
-            for (i32 i = 0; i < max_index; ++i)
+            u32       occupancy = (app_data->m_app_tick_fn_occupancy) & ((1 << max_index) - 1);
+            for (i32 i = 0; i < max_index && occupancy != 0; ++i)
             {
-                if (app_data->m_app_tick_fn[i] != nullptr)
+                if (occupancy & 1)
                 {
                     app_data->m_app_tick_fn[i](app_data, now_ms);
                 }
+                occupancy >>= 1;
             }
         }
     }
@@ -115,16 +118,20 @@ namespace ncore
         if (app_data != nullptr && fn != nullptr)
         {
             const i32 max_index = DARRAYSIZE(app_data->m_app_tick_fn);
-            for (i32 i = 0; i < max_index; ++i)
+            u32       occupancy = (app_data->m_app_tick_fn_occupancy) & ((1 << max_index) - 1);
+            for (i32 i = 0; i < max_index && occupancy != 0; ++i)
             {
-                if (app_data->m_app_tick_fn[i] == fn)
+                if (occupancy & 1)
                 {
-                    app_data->m_app_tick_fn[i] = nullptr;
-                    app_data->m_app_tick_fn_occupancy &= ~(1 << i);
-                    break;
+                    if (app_data->m_app_tick_fn[i] == fn)
+                    {
+                        app_data->m_app_tick_fn[i] = nullptr;
+                        app_data->m_app_tick_fn_occupancy &= ~(1 << i);
+                        break;
+                    }
                 }
+                occupancy >>= 1;
             }
-
         }
     }
 
@@ -139,7 +146,14 @@ namespace ncore
                 if (state_fn)
                 {
                     state_fn(state_data, app_data, now_ms);
-                    handle_state_data(state_data, app_data);
+                    if (state_data->m_next_state != FSM_STATE_NONE)
+                    {
+                        state_data->m_previous_state = state_data->m_current_state;
+                        state_data->m_current_state  = state_data->m_next_state;
+                        state_data->m_next_state     = FSM_STATE_NONE;
+                        state_data->m_state_data     = 0;
+                        state_data->m_state_start_ms = now_ms;
+                    }
                 }
             }
         }
@@ -159,17 +173,6 @@ namespace ncore
             script_memory_capacity = data->m_script_binary_capacity;
         }
         return script_binary != nullptr && script_binary_size > 0;
-    }
-
-    void handle_state_data(fsm_state_data_t* state_data, app_data_t* app_data)
-    {
-        if (state_data->m_next_state != FSM_STATE_NONE)
-        {
-            state_data->m_previous_state = state_data->m_current_state;
-            state_data->m_current_state  = state_data->m_next_state;
-            state_data->m_next_state     = FSM_STATE_NONE;
-            state_data->m_state_data     = 0;
-        }
     }
 
     void update_touch(app_data_t* data, u64 now_ms)

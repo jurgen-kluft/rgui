@@ -147,6 +147,13 @@ namespace ncore
         ASSET_SERVER_STATE_DOWNLOADING,
         ASSET_SERVER_STATE_COMPLETE,
         ASSET_SERVER_STATE_ERROR,
+        ASSET_SERVER_STATE_CONNECT_FAILED,
+    };
+
+    enum asset_server_settings_t
+    {
+        ASSET_SERVER_CONNECT_TIMEOUT_MS  = 10000,  // 10 seconds timeout for connecting to the asset server
+        ASSET_SERVER_DOWNLOAD_TIMEOUT_MS = 30000,  // 30 seconds timeout for downloading assets
     };
 
     struct data_type_version_t
@@ -167,8 +174,8 @@ namespace ncore
         {
             // Create the tcp client plugins for handshake and downloading, and register them.
             // Also set our download complete callback
-            nnet::tcp_recv_plugin_t* download_plugin = nnet::new_download_plugin(on_download_begin, on_download_complete, on_download_abort, &app_data);
-            nnet::tcp_recv_plugin_t* messages_plugin = nnet::new_messages_plugin(on_messages_acquire, on_messages_complete, on_messages_abort, &app_data);
+            nnet::tcp_recv_plugin_t* download_plugin = nnet::new_download_plugin(on_download_begin, on_download_complete, on_download_abort, app_data);
+            nnet::tcp_recv_plugin_t* messages_plugin = nnet::new_messages_plugin(on_messages_acquire, on_messages_complete, on_messages_abort, app_data);
 
             // Register the necessary plugins with the TCP client
             nnet::register_plugin(app_data->m_tcp_client, 0, download_plugin);
@@ -179,14 +186,20 @@ namespace ncore
 
             register_tick_fn(app_data, s_tick_tcp_client);
 
-            state_data->m_state_data = ASSET_SERVER_STATE_CONNECTING;
+            state_data->m_state_start_ms = now_ms;
+            state_data->m_state_data     = ASSET_SERVER_STATE_CONNECTING;
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_CONNECTING)
         {
             // Check if the TCP client is connected to the asset server
             if (nnet::is_connected(app_data->m_tcp_client))
             {
-                state_data->m_state_data = ASSET_SERVER_STATE_CONNECTED;
+                state_data->m_state_start_ms = now_ms;
+                state_data->m_state_data     = ASSET_SERVER_STATE_CONNECTED;
+            }
+            else if (now_ms - state_data->m_state_start_ms > ASSET_SERVER_CONNECT_TIMEOUT_MS)
+            {
+                state_data->m_state_data = ASSET_SERVER_STATE_CONNECT_FAILED;
             }
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_CONNECTED)
@@ -236,7 +249,12 @@ namespace ncore
 
             if (nnet::send(app_data->m_tcp_client, download_request.Data, download_request.Size))
             {
-                state_data->m_state_data = ASSET_SERVER_STATE_DOWNLOADING;
+                state_data->m_state_start_ms = now_ms;
+                state_data->m_state_data     = ASSET_SERVER_STATE_DOWNLOADING;
+            }
+            else
+            {
+                state_data->m_state_data = ASSET_SERVER_STATE_CONNECT_FAILED;
             }
         }
         else if (state_data->m_state_data == ASSET_SERVER_STATE_DOWNLOADING)
@@ -270,6 +288,16 @@ namespace ncore
                 // Ready to move on to the next state in the FSM.
                 to_state_next(state_data);
             }
+            else if (now_ms - state_data->m_state_start_ms > ASSET_SERVER_DOWNLOAD_TIMEOUT_MS)
+            {
+                state_data->m_state_start_ms = now_ms;
+                state_data->m_state_data     = ASSET_SERVER_STATE_CONNECT_FAILED;
+            }
+        }
+        else if (state_data->m_state_data == ASSET_SERVER_STATE_CONNECT_FAILED)
+        {
+            // Handle the connection failure, possibly retry or move to an error state.
+            to_state_error(state_data);
         }
     }
 

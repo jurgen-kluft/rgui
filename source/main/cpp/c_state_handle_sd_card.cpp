@@ -24,7 +24,7 @@ namespace ncore
 
     void state_handle_sd_card(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
-        if (state_data->m_current_state == 0)
+        if (state_data->m_state_data == 0)
         {
             nlog::log_info("SD Card", "Initializing");
 

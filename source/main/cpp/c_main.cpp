@@ -31,7 +31,7 @@ namespace ncore
         {
             const u64 now_ms = ntimer::millis();
 
-            update_tick_fns(&gAppState);
+            update_tick_fns(&gAppState, now_ms);
             update_fsm(&gAppState, now_ms);
         }
 

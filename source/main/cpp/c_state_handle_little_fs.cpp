@@ -57,7 +57,7 @@ namespace ncore
 
     void state_handle_little_fs(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
     {
-        if (state_data->m_current_state == 0)
+        if (state_data->m_state_data == 0)
         {
             nlog::log_info("LITTLE-FS", "Initializing");
             if (!nlittlefs::initialize())
@@ -78,6 +78,8 @@ namespace ncore
             // - house_global.bin
             // - house_meta.bin
             // - house_sensors.bin
+
+            to_state_next(state_data);
         }
     }
 

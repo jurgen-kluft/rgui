@@ -76,7 +76,7 @@ namespace ncore
     static void s_tick_sensor_server(app_data_t* app_data, u64 now_ms)
     {
         // tick the tcp client that is connected to the sensor server
-        nnet::tick_tcp_client(app_data->m_wifi_manager, app_data->m_tcp_client);
+        nnet::tick_tcp_client(nnet::get_link_state(app_data->m_wifi_manager), app_data->m_tcp_client);
     }
 
     void state_handle_sensor_server(fsm_state_data_t* state_data, app_data_t* app_data, u64 now_ms)
